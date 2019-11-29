@@ -1526,8 +1526,7 @@ Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
 	update_bootstrap_supports_from_node_names(mytree);
 
   // Skip these (quadratic-time operations) for the rapid TBE calculation:
-  if(!skip_hashtables)
-  {
+  if(!skip_hashtables) {
 	  update_hashtables_post_alltree(mytree);
 	  update_hashtables_pre_alltree(mytree);
 
@@ -2503,13 +2502,14 @@ Node** get_leaves(const Tree* tree) {
 Set up all the Node variables associated with rapid Transfer Index calculation.
 This is to be used in a post-order traversal of the tree.
 
+@note     also set the edge->topo_depth (# leaves on light side of the edge)
 @warning  assumes binary rooted tree.
 */
 void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t) {
     // Set subtreesize:
   if(target->nneigh == 1)           //leaf
   {
-    target->subtreesize = 1;
+    target->br[0]->topo_depth = target->subtreesize = 1;
     addLeafLA(t->leaves, target);
   }
   else                              //internal node
@@ -2520,6 +2520,10 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t) {
 
     for(int i=1; i < target->nneigh; i++)
       target->subtreesize += target->neigh[i]->subtreesize;
+
+    if(target != t->node0)          //set topo_depth for edges above nodes
+      target->br[0]->topo_depth = min(target->subtreesize,
+                                      t->nb_taxa - target->subtreesize);
   }
   
     // Set the rest:

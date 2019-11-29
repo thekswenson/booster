@@ -40,7 +40,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
    (tree structures, tbe algorithm)
 */
 
-//#define COMPARE_TBE_METHODS
+// #define COMPARE_TBE_METHODS
 
 void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff,int count_per_branch);
 void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, int num_trees, int quiet);
@@ -284,14 +284,17 @@ int main (int argc, char* argv[]) {
   fclose(intree_file);
 
   /* and then feed this string to the parser */
-  bool rapid = false;
-  if(strcmp(algo, "rtbe"))
-    rapid = true;
+  bool rapid = !strcmp(algo, "rtbe");
+
+  bool skip_hashtables = rapid;
+  #ifdef COMPARE_TBE_METHODS
+  skip_hashtables = false;
+  #endif
 
   char** taxname_lookup_table = NULL;
-  ref_tree  = complete_parse_nh(big_string, &taxname_lookup_table, rapid); /* sets taxname_lookup_table en passant */
+  ref_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables); /* sets taxname_lookup_table en passant */
   if(out_raw_tree !=NULL){
-    ref_raw_tree  = complete_parse_nh(big_string, &taxname_lookup_table, rapid); /* sets taxname_lookup_table en passant */
+    ref_raw_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables); /* sets taxname_lookup_table en passant */
   }
 
 
@@ -328,8 +331,8 @@ int main (int argc, char* argv[]) {
 
   if(!quiet)  fprintf(stderr,"Num trees: %d\n",num_trees);
 
-  if(!strcmp(algo,"tbe") || !strcmp(algo, "rtbe")){
-    tbe(!strcmp(algo, "rtbe"), ref_tree, ref_raw_tree, alt_tree_strings, taxname_lookup_table, stat_file, num_trees, quiet, dist_cutoff, count_per_branch);
+  if(!strcmp(algo,"tbe") || rapid){
+    tbe(rapid, ref_tree, ref_raw_tree, alt_tree_strings, taxname_lookup_table, stat_file, num_trees, quiet, dist_cutoff, count_per_branch);
   }else{
     fbp(ref_tree, alt_tree_strings, taxname_lookup_table, num_trees, quiet);
   }
@@ -442,7 +445,11 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   trans_ind_tmp = (int**) calloc(num_trees,sizeof(int*)); /* array of index sums, one per boot tree and branch. Initialized to 0. */
   for(i_tree=0; i_tree< num_trees; i_tree++)
     trans_ind_tmp[i_tree]  = (int*) calloc(m,sizeof(int)); /* array of index sums, one per branch. Initialized to 0. */
+
+  bool skip_hashtables = rapid;
   #ifdef COMPARE_TBE_METHODS
+  skip_hashtables = false;
+
   trans_ind_new = (int**) calloc(num_trees,sizeof(int*)); /* array of index sums, one per boot tree and branch. Initialized to 0. */
   for(i_tree=0; i_tree< num_trees; i_tree++)
     trans_ind_new[i_tree]  = (int*) calloc(m,sizeof(int)); /* array of index sums, one per branch. Initialized to 0. */
@@ -455,7 +462,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   #pragma omp parallel for private(alt_tree, ref_tree_copy) shared(ref_tree, max_branches_boot, alt_tree_strings, trans_ind_tmp, trans_ind_new, taxname_lookup_table, n, m, moved_species_counts, moved_species_counts_per_branch) schedule(dynamic)
   for(i_tree=0; i_tree< num_trees; i_tree++){
     if(!quiet) fprintf(stderr,"New bootstrap tree : %d\n",i_tree);
-    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, rapid);
+    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, skip_hashtables);
     
     if (alt_tree == NULL) {
       fprintf(stderr,"Not a correct NH tree (%d). Skipping.\n%s\n",i_tree,alt_tree_strings[i_tree]);
@@ -588,7 +595,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   free(trans_ind_tmp);
 
   #ifdef COMPARE_TBE_METHODS
-  for(i_tree=0; i_tree < num_trees;i_tree++){
+  for(i_tree=0; i_tree < num_trees;i_tree++)
     free(trans_ind_new[i_tree]);
   free(trans_ind_new);
   #endif
