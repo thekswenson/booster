@@ -452,27 +452,6 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t);
 void prepare_rapid_TI_post(Tree* tree);
 
 
-/* Print all nodes of the tree in a post-order traversal.
-*/
-void print_nodes_post_order(Tree* t);
-void print_node_callback(Node* n, Node* m, Tree* t);
-void print_node(const Node* n);
-void print_node_TI(const Node* n);
-/* Print TI variables for a node in alt_tree.
-*/
-void print_node_TIvars(const Node* n);
-
-/* Print the nodes from the given Node* array.
-*/
-void print_nodes(Node **nodes, const int n);
-/* Print the nodes from the given Node* array (with the transfer index).
-*/
-void print_nodes_TI(Node **nodes, const int n);
-/* Print the TI variables for the given nodes from alt_tree.
-*/
-void print_nodes_TIvars(Node **nodes, const int n);
-
-
 /* Return true if the given Node is the right child of its parent.
 
 @warning  assume u is not the root.
@@ -532,6 +511,38 @@ int max3(int i1, int i2, int i3);
 /* Return the maximum of four integers.
 */
 int max4(int i1, int i2, int i3, int i4);
+
+
+/* - - - - - - - - - - - - - Printing Trees - - - - - - - - - - - - - - - */
+
+
+/* Print all nodes of the tree in a post-order traversal.
+*/
+void print_nodes_post_order(Tree* t);
+void print_node_callback(Node* n, Node* m, Tree* t);
+void print_node(const Node* n);
+void print_node_TI(const Node* n);
+/* Print TI variables for a node in alt_tree.
+*/
+void print_node_TIvars(const Node* n);
+
+/* Print the nodes from the given Node* array.
+*/
+void print_nodes(Node **nodes, const int n);
+/* Print the nodes from the given Node* array (with the transfer index).
+*/
+void print_nodes_TI(Node **nodes, const int n);
+/* Print the TI variables for the given nodes from alt_tree.
+*/
+void print_nodes_TIvars(Node **nodes, const int n);
+
+
+/* Print the tree in dot format to the given filename.
+*/
+void print_tree_dot(Tree* t, char* filename, bool is_reftree);
+void rec_print_ref_tree_dot(Node* n, FILE *f);
+void rec_print_alt_tree_dot(Node* n, FILE *f);
+
 
 /* - - - - - - - - - - - - - Using Heavy Paths - - - - - - - - - - - - - - - */
 

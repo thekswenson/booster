@@ -2544,69 +2544,6 @@ void prepare_rapid_TI_post(Tree* tree) {
 }
 
 
-/*
-Print all nodes of the tree in a post-order traversal.
-*/
-void print_nodes_post_order(Tree* t) {
-  post_order_traversal(t, &print_node_callback);
-}
-void print_node_callback(Node* n, Node* m, Tree* t) {
-  print_node(n);
-}
-
-void print_node(const Node* n) {
-  char *name = "----";
-  if(n->nneigh == 1)  //a leaf
-    name = n->name;
-  fprintf(stderr, "node id: %i name: %s |L|: %i depth: %i\n", n->id,
-          name, n->subtreesize, n->depth);
-}
-void print_node_TI(const Node* n) {
-  char *name = "----";
-  if(n->nneigh == 1)  //a leaf
-    name = n->name;
-  fprintf(stderr,
-          "node id: %i name: %s |L|: %i depth: %i TImin: %i TImax: %i\n",
-          n->id, name, n->subtreesize, n->depth, n->ti_min, n->ti_max);
-}
-
-void print_node_TIvars(const Node* n) {
-  fprintf(stderr, "d_min: %i d_max: %i d_lazy: %i diff: %i\n", n->d_min,
-          n->d_max, n->d_lazy, n->diff);
-}
-
-/*
-Print the nodes from the given Node* array.
-*/
-void print_nodes(Node **nodes, const int n)
-{
-  fprintf(stderr, "Nodes:\n");
-  for(int i=0; i < n; i++)
-    print_node(nodes[i]);
-}
-/*
-Print the nodes from the given Node* array (with the transfer index).
-*/
-void print_nodes_TI(Node **nodes, const int n)
-{
-  fprintf(stderr, "Nodes:\n");
-  for(int i=0; i < n; i++)
-    print_node_TI(nodes[i]);
-}
-
-/*
-Print the TI variables for the given nodes from alt_tree.
-*/
-void print_nodes_TIvars(Node **nodes, const int n)
-{
-  fprintf(stderr, "Nodes:\n");
-  for(int i=0; i < n; i++)
-  {
-    print_node(nodes[i]);
-    fprintf(stderr, "\t"); print_node_TIvars(nodes[i]);
-  }
-}
-
 
 /*
 Return true if the given Node is the right child of its parent.
@@ -2740,6 +2677,138 @@ int max4(int i1, int i2, int i3, int i4)
 {
   return max(max3(i1, i2, i3), i4);
 }
+
+
+/* - - - - - - - - - - - - - Printing Trees - - - - - - - - - - - - - - - */
+
+
+/*
+Print all nodes of the tree in a post-order traversal.
+*/
+void print_nodes_post_order(Tree* t) {
+  post_order_traversal(t, &print_node_callback);
+}
+void print_node_callback(Node* n, Node* m, Tree* t) {
+  print_node(n);
+}
+
+void print_node(const Node* n) {
+  char *name = "----";
+  if(n->nneigh == 1)  //a leaf
+    name = n->name;
+  fprintf(stderr, "node id: %i name: %s |L|: %i depth: %i\n", n->id,
+          name, n->subtreesize, n->depth);
+}
+void print_node_TI(const Node* n) {
+  char *name = "----";
+  if(n->nneigh == 1)  //a leaf
+    name = n->name;
+  fprintf(stderr,
+          "node id: %i name: %s |L|: %i depth: %i TImin: %i TImax: %i\n",
+          n->id, name, n->subtreesize, n->depth, n->ti_min, n->ti_max);
+}
+
+void print_node_TIvars(const Node* n) {
+  fprintf(stderr, "d_min: %i d_max: %i d_lazy: %i diff: %i\n", n->d_min,
+          n->d_max, n->d_lazy, n->diff);
+}
+
+/*
+Print the nodes from the given Node* array.
+*/
+void print_nodes(Node **nodes, const int n)
+{
+  fprintf(stderr, "Nodes:\n");
+  for(int i=0; i < n; i++)
+    print_node(nodes[i]);
+}
+/*
+Print the nodes from the given Node* array (with the transfer index).
+*/
+void print_nodes_TI(Node **nodes, const int n)
+{
+  fprintf(stderr, "Nodes:\n");
+  for(int i=0; i < n; i++)
+    print_node_TI(nodes[i]);
+}
+
+/*
+Print the TI variables for the given nodes from alt_tree.
+*/
+void print_nodes_TIvars(Node **nodes, const int n)
+{
+  fprintf(stderr, "Nodes:\n");
+  for(int i=0; i < n; i++)
+  {
+    print_node(nodes[i]);
+    fprintf(stderr, "\t"); print_node_TIvars(nodes[i]);
+  }
+}
+
+
+/*
+Print the reference tree in dot format.
+*/
+void print_tree_dot(Tree* t, char* filename, bool is_reftree) {
+  FILE *f = fopen(filename, "w");
+  if(f == NULL)
+  {
+    fprintf(stderr, "Can't open file %s for writing!", filename);
+    exit(0);
+  }
+
+  fprintf(f, "digraph HPT\n  {\n  center=true;\n");
+
+  if(is_reftree)
+    rec_print_ref_tree_dot(t->node0, f);
+  else
+    rec_print_alt_tree_dot(t->node0, f);
+
+  fprintf(f, "  }\n");
+  fclose(f);
+}
+
+void rec_print_ref_tree_dot(Node* n, FILE *f) {
+  if(n->nneigh == 1)
+    fprintf(f, "  %i [label=\"%i (%s): %i, %i\"];\n",
+            n->id, n->id, n->name, n->ti_min, n->ti_max);
+  else
+    fprintf(f, "  %i [label=\"%i: %i, %i\"];\n",
+            n->id, n->id, n->ti_min, n->ti_max);
+
+  if(n->nneigh > 1) {
+    int startind = 1;
+    if(n->depth == 0)
+      startind = 0;
+
+    for(int i=startind; i < n->nneigh; i++) {
+      rec_print_ref_tree_dot(n->neigh[i], f);
+      fprintf(f, "  %i -> %i [label=\"%i\"];\n",
+              n->id, n->neigh[i]->id, n->br[i]->transfer_index);
+    }
+  }
+}
+
+void rec_print_alt_tree_dot(Node* n, FILE *f) {
+  if(n->nneigh == 1)
+    fprintf(f, "  %i [label=\"%i (%s): %i, %i\"];\n",
+            n->id, n->id, n->name, n->d_min, n->d_max);
+  else
+    fprintf(f, "  %i [label=\"%i: %i, %i\"];\n",
+            n->id, n->id, n->d_min, n->d_max);
+
+  if(n->nneigh > 1) {
+    int startind = 1;
+    if(n->depth == 0)
+      startind = 0;
+
+    for(int i=startind; i < n->nneigh; i++) {
+      rec_print_alt_tree_dot(n->neigh[i], f);
+      fprintf(f, "  %i -> %i [label=\"\"];\n", n->id, n->neigh[i]->id);
+    }
+  }
+}
+
 
 /* - - - - - - - - - - - - - Using Heavy Paths - - - - - - - - - - - - - - - */
 
