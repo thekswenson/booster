@@ -24,7 +24,7 @@ At the end, transfer_index[i] will have the transfer index for edge i.
 */
 void compute_transfer_indices_new(Tree *ref_tree, const int n,
                                   const int m, Tree *alt_tree,
-                                  int *transfer_index, int iteration)
+                                  int *transfer_indices, int iteration)
 {
   set_leaf_bijection(ref_tree, alt_tree);  //Map leaves between the two trees
 
@@ -58,8 +58,8 @@ void compute_transfer_indices_new(Tree *ref_tree, const int n,
 
   free_HPT(heavypath_root);
 
-  nodeTI_to_edgeTI(ref_tree);                //Move node values to the edges
-  edgeTI_to_array(ref_tree, transfer_index); //Copy edge values into the array
+  nodeTI_to_edgeTI(ref_tree);                  //Move node values to the edges
+  edgeTI_to_array(ref_tree, transfer_indices); //Copy edge values into the array
 }
 
 
@@ -133,8 +133,6 @@ void add_heavy_path(Node *u, Tree *alt_tree, int use_HPT)
 {
   //int j = 0;  //TEMP
   Path* hpt_root = get_HPT_root(u->other);
-  //fprintf(stderr, "HPT root: ");
-  //print_HPT_node(hpt_root);
   while(u)                               //Have not visited the root and have
   {                                      //not seen a heavier sibling
     DB_TRACE(0, "________\n");
@@ -144,12 +142,15 @@ void add_heavy_path(Node *u, Tree *alt_tree, int use_HPT)
     if(u->nneigh == 1)                          //u is a leaf in ref_tree, so
     {                                           //can't be heavier than sibling
       DB_TRACE(0, "leaf - "); DB_CALL(0, print_node(u));
+      //print_HPT_dot(hpt_root, alt_tree->node0, 30000);
+
       if(use_HPT)
         add_leaf_HPT(u->other);
       else
         add_leaf(u->other);                     //add_leaf on v (in alt_tree)
 
-      //print_HPT_dot(hpt_root, alt_tree->node0, 30000);
+      //if(u->id == 12)
+      //  print_HPT_dot(hpt_root, alt_tree->node0, 30001);
     }
     else
     {
@@ -161,7 +162,8 @@ void add_heavy_path(Node *u, Tree *alt_tree, int use_HPT)
         else
           add_leaf(u->lightleaves->a[i]->other);
 
-        //print_HPT_dot(hpt_root, alt_tree->node0, 20000+j*100+i);
+        //if(u->id == 12)
+        //  print_HPT_dot(hpt_root, alt_tree->node0, 20000+j*100+i);
       }
     }
     //j++;
@@ -171,6 +173,7 @@ void add_heavy_path(Node *u, Tree *alt_tree, int use_HPT)
     {
       u->ti_min = min(hpt_root->d_min_path, hpt_root->d_min_subtree);
       u->ti_max = max(hpt_root->d_max_path, hpt_root->d_max_subtree);
+      //fprintf(stderr, "u %i: %i\n", u->id, u->ti_min);
     }
     else
     {
