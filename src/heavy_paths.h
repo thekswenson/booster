@@ -128,11 +128,6 @@ bool is_HPT_leaf(Path *n);
 void print_heavypath(Node **heavypath, int length);
 
 
-/* Print the Heavy Path Tree (HPT) in dot format.
-*/
-void print_HPT_dot(Path* hproot, Node* altroot, int repid);
-
-
 /* Build a path from this Path leaf up to the root of the HPT, following each
 PT to it's root in turn.
 */
@@ -148,6 +143,11 @@ path from the given leaf to the root of the HPT.
 void reset_leaf_HPT(Node *leaf);
 
 /*--------------------- OUTPUT FUNCTIONS -------------------------*/
+
+
+/* Print the Heavy Path Tree (HPT) in dot format.
+*/
+void print_HPT_dot(Path* hproot, Node* altroot, int repid);
 
 /* Print the given Path node.
 */

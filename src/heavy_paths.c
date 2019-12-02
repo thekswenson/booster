@@ -297,24 +297,34 @@ void add_leaf_HPT(Node* leaf)
   {
     if(path[i]->child_heavypaths)               //leaf of a PT
     {                                           //d_min_path already set
-      path[i]->d_min_subtree = path[i]->child_heavypaths[0]->d_min_path;
-      path[i]->d_max_subtree = path[i]->child_heavypaths[0]->d_max_path;
+      path[i]->d_min_subtree = path[i]->child_heavypaths[0]->d_min_path +
+                               path[i]->child_heavypaths[0]->diff_path;
+      path[i]->d_max_subtree = path[i]->child_heavypaths[0]->d_max_path +
+                               path[i]->child_heavypaths[0]->diff_path;
 
       for(int j=0; j < path[i]->num_child_paths; j++)
       {
         if(is_HPT_leaf(path[i]->child_heavypaths[j]))
         {
-          path[i]->d_min_subtree = path[i]->d_max_subtree =
-            path[i]->child_heavypaths[j]->d_min_path;
+          path[i]->d_min_subtree = min(path[i]->d_min_subtree,
+                                       path[i]->child_heavypaths[j]->d_min_path+
+                                       path[i]->child_heavypaths[j]->diff_path);
+          path[i]->d_max_subtree = max(path[i]->d_max_subtree,
+                                       path[i]->child_heavypaths[j]->d_max_path+
+                                       path[i]->child_heavypaths[j]->diff_path);
         }
         else
         {
           path[i]->d_min_subtree = min3(path[i]->d_min_subtree,
-                                        path[i]->child_heavypaths[j]->d_min_path,
-                                        path[i]->child_heavypaths[j]->d_min_subtree);
+                                        path[i]->child_heavypaths[j]->d_min_path+
+                                        path[i]->child_heavypaths[j]->diff_path,
+                                        path[i]->child_heavypaths[j]->d_min_subtree+
+                                        path[i]->child_heavypaths[j]->diff_path);
           path[i]->d_max_subtree = max3(path[i]->d_max_subtree,
-                                        path[i]->child_heavypaths[j]->d_max_path,
-                                        path[i]->child_heavypaths[j]->d_max_subtree);
+                                        path[i]->child_heavypaths[j]->d_max_path+
+                                        path[i]->child_heavypaths[j]->diff_path,
+                                        path[i]->child_heavypaths[j]->d_max_subtree+
+                                        path[i]->child_heavypaths[j]->diff_path);
         }
       }
     }
