@@ -23,6 +23,7 @@ Path* new_Path()
   newpath->child_heavypaths = NULL;
   newpath->num_child_paths = 0;
   newpath->parent_heavypath = NULL;
+  newpath->path_to_root = NULL;
 
   newpath->total_depth = 0;
 
@@ -48,6 +49,13 @@ Path of the Path tree.
         child_heavypath pointer).
         We call the entire tree the HeavyPathTree (HPT)
 */
+Path* do_heavy_decomposition(Node *root)
+{
+  Path* heavy_path_tree_root = heavy_decomposition(root, 0);
+  set_paths_to_root(heavy_path_tree_root);
+  return heavy_path_tree_root;
+}
+
 Path* heavy_decomposition(Node *root, int depth)
 {
   int length;
@@ -81,6 +89,11 @@ void free_HPT(Path* node)
   {
     free_HPT(node->left);
     free_HPT(node->right);
+  }
+
+  else                                      //a leaf of the HPT
+  {
+    free(node->path_to_root);
   }
 
   free(node);
@@ -186,6 +199,57 @@ Path* heavypath_leaf(Node *node, int depth)
 
 
 /*
+Descend to the leaves of the HPT. Once there, create the path_to_root vector
+for that Path object.
+*/
+void set_paths_to_root(Path* node)
+{
+  if(node->child_heavypaths)
+    for(int i=0; i < node->num_child_paths; i++)
+      set_paths_to_root(node->child_heavypaths[i]);
+
+  else if(node->left)
+  {
+    set_paths_to_root(node->left);
+    set_paths_to_root(node->right);
+  }
+
+  else                                //a leaf of the HPT tree
+    node->path_to_root = path_to_root_HPT(node);
+}
+
+/*
+Build a path (vector of Path*) from this Path leaf up to the root of the HPT,
+following each PT to it's root in turn.
+*/
+Path** path_to_root_HPT(Path* leaf)
+{
+  int pathlen = leaf->total_depth+1;
+  Path** path_to_root = calloc(pathlen, sizeof(Path*));
+  int i_path = 0;
+
+  Path* w = leaf;
+  while(w != NULL)                    //traverse up between PTs
+  {
+    while(1)                          //traverse up each PT
+    {
+      path_to_root[i_path++] = w;
+      if(w->parent == NULL)
+        break;
+
+      w = w->parent;
+    }
+
+    w = w->parent_heavypath;
+  }
+  assert(i_path == pathlen);
+
+  return path_to_root;
+}
+
+
+
+/*
 Return the heavypath rooted at the node.
    - user responsible for memory of returned heavypath.
 */
@@ -245,7 +309,7 @@ void add_leaf_HPT(Node* leaf)
     //values as we go. Subtract 1 for nodes on the path, and nodes above (to
     //the left) in the heavypath, and add 1 for nodes to the right in the
     //heavypath:
-  Path** path = path_to_root_HPT(leaf->path);
+  Path** path = leaf->path->path_to_root;
   int pathlen = path[0]->total_depth + 1; //length (in number of nodes)
   for(int i = pathlen-1; i > 0; i--)      //go from root to parent of leaf.
   {
@@ -367,35 +431,6 @@ void add_leaf_HPT(Node* leaf)
       }
     }
   }
-}
-
-/*
-Build a path (vector of Path*) from this Path leaf up to the root of the HPT,
-following each PT to it's root in turn.
-*/
-Path** path_to_root_HPT(Path* leaf)
-{
-  int pathlen = leaf->total_depth+1;
-  Path** path_to_root = calloc(pathlen, sizeof(Path*));
-  int i_path = 0;
-
-  Path* w = leaf;
-  while(w != NULL)                    //traverse up between PTs
-  {
-    while(1)                          //traverse up each PT
-    {
-      path_to_root[i_path++] = w;
-      if(w->parent == NULL)
-        break;
-
-      w = w->parent;
-    }
-
-    w = w->parent_heavypath;
-  }
-  assert(i_path == pathlen);
-
-  return path_to_root;
 }
 
 
