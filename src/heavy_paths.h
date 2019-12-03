@@ -30,17 +30,23 @@ typedef struct __Node Node;
 /*
   We use the following conventions:
   - the original alt_tree is decomposed into heavypaths
-  - a heavypath is represented by a binary tree of Path objects where:
+  - a heavypath is represented by a binary tree of Path objects (called the
+    PathTree PT) where:
     * the root of the tree contains information for the entire heavypath
     * the leaves of the tree contain node information for the corresponding
-      node in alt_tree, along with a pointer to the pendant heavypath
+      node in alt_tree, along with pointers (child_heavypaths) to the
+      pendant heavypaths (in the case of a binary tree there is only one
+      pendant heavypath).
 
-  In other words, a tree of Paths represents a heavypath, where the Path object
-  can be an internal node, the root (which contains the summary bookkeeping
-  for the entire heavypath), or a leaf.
-  In the case of a leaf, the Path represents the node in alt_tree on the
-  current heavypath, pointed to by node, and the pendant heavypath is
-  pointed to by child_heavypath.
+  In other words, a tree of Paths (PT) represents a heavypath, where the Path
+  object can be an internal subpath node, the root (which contains the
+  summary bookkeeping for the entire heavypath), or a leaf.
+  In the case of a PT leaf, the Path represents the node in alt_tree on the
+  current heavypath, pointed to by node, and the pendant heavypath is pointed
+  to by child_heavypath.
+
+  The entire group of PTs that are glued together by child_heavypath pointers
+  is called the HeavyPathTree (HPT).
 */
 typedef struct __Path Path;
 typedef struct __Path {
