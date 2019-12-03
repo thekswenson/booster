@@ -47,6 +47,10 @@ typedef struct __Node Node;
 
   The entire group of PTs that are glued together by child_heavypath pointers
   is called the HeavyPathTree (HPT).
+
+  If the PT leaf is also a leaf of alt_tree, then n->node and
+  n->child_heavypaths are NULL and the path_to_root is a vector of Path objects
+  that reprent the path in the HPT from the leaf to the root of the HPT.
 */
 typedef struct __Path Path;
 typedef struct __Path {
@@ -66,7 +70,10 @@ typedef struct __Path {
   Path* parent_heavypath;   //The Path that this PT hangs on.
 
   int total_depth;          //# of Path structs to root through all PTs
-                            //(# nodes through entire HPT).
+                            // (# nodes through entire HPT).
+
+  Path** path_to_root;      //Vector of Path objects to root.
+                            // (only set if this is a leaf of the HPT)
 
     //The transfer index (TI) values:
   int diff_path;     //Diff to add to subtree rooted on path.
@@ -93,6 +100,7 @@ Path of the Path tree.
         child_heavypath pointer).
         We call the entire tree the HeavyPathTree (HPT)
 */
+Path* do_heavy_decomposition(Node *root);
 Path* heavy_decomposition(Node *root, int depth);
 
 /* Free the memory for the HeavyPathTree (allocated in heavy_decomposition).
@@ -133,6 +141,12 @@ bool is_HPT_leaf(Path *n);
 */
 void print_heavypath(Node **heavypath, int length);
 
+
+/*
+Descend to the leaves of the HPT. Once there, create the path_to_root vector
+for that Path object.
+*/
+void set_paths_to_root(Path* node);
 
 /* Build a path from this Path leaf up to the root of the HPT, following each
 PT to it's root in turn.
