@@ -20,7 +20,7 @@ We start by computing the TI for a leaf u. Then the TI is computed for parent
 u', as long as u is the "heavy" child of u'. This is repeated, starting at
 each leaf.
 
-At the end, transfer_index[i] will have the transfer index for edge i.
+At the end, the transfer index for edge i will be in transfer_index[i].
 */
 void compute_transfer_indices_new(Tree *ref_tree, const int n,
                                   const int m, Tree *alt_tree,
@@ -33,7 +33,7 @@ void compute_transfer_indices_new(Tree *ref_tree, const int n,
   DB_CALL(0, print_nodes_post_order(alt_tree));
 
   Path* heavypath_root = do_heavy_decomposition(alt_tree->node0);
-  verify_all_leaves_touched(alt_tree);     //TEMPORARY!
+  DB_CALL(0, verify_all_leaves_touched(alt_tree));
 
   Node** ref_leaves = ref_tree->leaves->a; //Leaves in ref_tree
 

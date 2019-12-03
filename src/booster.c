@@ -435,7 +435,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   /* array a[i][j] of number of bootstrap tree from which each taxon j moves around the branch i and that are closer than given distance */
   int **moved_species_counts_per_branch = NULL;
 
-  if(stat_file != NULL && count_per_branch){
+  if(stat_file != NULL && count_per_branch && !rapid){
     moved_species_counts_per_branch = (int**) calloc(m,sizeof(int*));
     for(int i=0;i<m;i++){
       moved_species_counts_per_branch[i]  = (int*) calloc(n,sizeof(int));
@@ -476,7 +476,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
     if (rapid) {
       if(omp_get_num_threads() > 1)        //If parallel, we copy ref_tree
         ref_tree_copy = copy_tree_rapidTI(ref_tree);
-      else                                 //NOTE: still necessary?
+      else
         ref_tree_copy = ref_tree;
     
       compute_transfer_indices_new(ref_tree_copy, n, m, alt_tree,
