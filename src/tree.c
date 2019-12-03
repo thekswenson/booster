@@ -1287,7 +1287,7 @@ void process_name_and_brlen(Node* son_node, Edge* edge, Tree* current_tree, char
 
 
 
-Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, int direction, char* in_str, int begin, int end) {
+Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, int direction, char* in_str, int begin, int end, bool skip_hashtables) {
 	/* This function creates (allocates) the son node in the given direction from the current node.
 	   It also creates a new branch to connect the son to the father.
 	   The array structures in the tree (a_nodes and a_edges) are updated accordingly.
@@ -1319,8 +1319,16 @@ Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, i
 	current_tree->a_edges[edge->id] = edge;
 	current_tree->nb_edges++;
 
-	edge->hashtbl[0] = create_id_hash_table(current_tree->length_hashtables);
-	edge->hashtbl[1] = create_id_hash_table(current_tree->length_hashtables);
+  if(skip_hashtables)
+  {
+	  edge->hashtbl[0] = NULL;
+	  edge->hashtbl[1] = NULL;
+  }
+  else
+  {
+	  edge->hashtbl[0] = create_id_hash_table(current_tree->length_hashtables);
+	  edge->hashtbl[1] = create_id_hash_table(current_tree->length_hashtables);
+  }
 
 	// for (i=0; i<2; i++) edge->subtype_counts[i] = (int*) calloc(NUM_SUBTYPES, sizeof(int));
 	for (i=0; i<2; i++) edge->subtype_counts[i] = NULL; /* subtypes.c will have to create that space */
@@ -1341,7 +1349,7 @@ Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, i
 
 
 
-void parse_substring_into_node(char* in_str, int begin, int end, Node* current_node, int has_father, Tree* current_tree) {
+void parse_substring_into_node(char* in_str, int begin, int end, Node* current_node, int has_father, Tree* current_tree, bool skip_hashtables) {
 	/* this function supposes that current_node is already allocated, but not the data structures in there.
 	   It reads starting from character of in_str at index begin and stops at character at index end.
 	   It is supposed that the input to this function is what has been seen immediately within a set of parentheses.
@@ -1404,10 +1412,10 @@ void parse_substring_into_node(char* in_str, int begin, int end, Node* current_n
 			pair[1] = comma_index - 1;
 
 			son = create_son_and_connect_to_father(current_node, current_tree, direction /* dir from current */,
-								in_str, pair[0], pair[1]);
+								in_str, pair[0], pair[1], skip_hashtables);
 			/* RECURSIVE TREATMENT OF THE SON */
 			strip_toplevel_parentheses(in_str,pair[0],pair[1],inner_pair); /* because name and brlen already processed by create_son */
-			parse_substring_into_node(in_str,inner_pair[0],inner_pair[1], son, 1, current_tree); /* recursive treatment */
+			parse_substring_into_node(in_str,inner_pair[0],inner_pair[1], son, 1, current_tree, skip_hashtables); /* recursive treatment */
 			/* after the recursive treatment of the son, the data structures of the son have been created, so now we can write
 			   in it the data corresponding to its direction0 (father) */
 			son->neigh[0] = current_node;
@@ -1422,7 +1430,7 @@ void parse_substring_into_node(char* in_str, int begin, int end, Node* current_n
 
 
 
-Tree* parse_nh_string(char* in_str) {
+Tree* parse_nh_string(char* in_str, bool skip_hashtables) {
 	/* this function allocates, populates and returns a new tree. */
 	/* returns NULL if the file doesn't correspond to NH format */
 	int in_length = (int) strlen(in_str);
@@ -1487,7 +1495,7 @@ Tree* parse_nh_string(char* in_str) {
 
 	/* ACTUALLY READING THE TREE... */
 
-	parse_substring_into_node(in_str, begin, end, t->node0, 0 /* no father node */, t);
+	parse_substring_into_node(in_str, begin, end, t->node0, 0 /* no father node */, t, skip_hashtables);
 
 	/* SANITY CHECKS AFTER READING THE TREE */
 
@@ -1516,7 +1524,7 @@ Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
                         bool skip_hashtables) {
 	/* trick: iff taxname_lookup_table is NULL, we set it according to the tree read, otherwise we use it as the reference taxname lookup table */
 	int i;
- 	Tree* mytree = parse_nh_string(big_string); 
+ 	Tree* mytree = parse_nh_string(big_string, skip_hashtables); 
 	if(mytree == NULL) { fprintf(stderr,"Not a syntactically correct NH tree.\n"); return NULL; }
 
 	if(*taxname_lookup_table == NULL)

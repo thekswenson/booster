@@ -525,7 +525,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   int card;
   double bootstrap_val, avg_dist;
 
-  if(num_trees != 0) {
+  if(num_trees != 0 && !rapid) {
     if(stat_file != NULL)
       fprintf(stat_file,"EdgeId\tDepth\tMeanMinDist\n");
 

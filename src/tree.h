@@ -244,9 +244,9 @@ int copy_nh_stream_into_str(FILE* nh_stream, char* big_string);
 
 /* actually parsing a tree */
 void process_name_and_brlen(Node* son_node, Edge* edge, Tree* current_tree, char* in_str, int begin, int end);
-Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, int direction, char* in_str, int begin, int end);
-void parse_substring_into_node(char* in_str, int begin, int end, Node* current_node, int has_father, Tree* current_tree);
-Tree* parse_nh_string(char* in_str);
+Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, int direction, char* in_str, int begin, int end, bool skip_hashtables);
+void parse_substring_into_node(char* in_str, int begin, int end, Node* current_node, int has_father, Tree* current_tree, bool skip_hashtables);
+Tree* parse_nh_string(char* in_str, bool skip_hashtables);
 
 /* complete parse tree: parse NH string, update hashtables and subtype counts */
 Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
