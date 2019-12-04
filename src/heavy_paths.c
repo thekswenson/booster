@@ -596,7 +596,7 @@ void print_HPT_dot(Path* hproot, Node* altroot, int repid)
 {
   char filename[15];
   sprintf(filename, "hptree_%i.dot", repid);
-  fprintf(stderr, "Creating PDF: %s\n", filename);
+  fprintf(stderr, "Creating DOT: %s\n", filename);
   FILE *f = fopen(filename, "w");
   if(f == NULL)
   {

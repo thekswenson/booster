@@ -91,7 +91,7 @@ typedef struct __Node {
 
          // Variables used for rapid transfer index calculation on ref_tree:
    int ti_min;       // The (rooted) transfer index for this node.
-   int ti_max;       // The (rooted) maximum transfer distance for this subtree.
+   int ti_max;       // The (rooted) maximum transfer distance for this node.
    LeafArray* lightleaves;   // The leaves in the light children.
    Node* heavychild; // The heaviest child
    Node* other;      // Corresponding leaf in another tree (see set_leaf_bijection())
@@ -528,26 +528,35 @@ void print_node_TIvars(const Node* n);
 
 /* Print the nodes from the given Node* array.
 */
-void print_nodes(Node **nodes, const int n);
+void print_nodes(Node** nodes, const int n);
 /* Print the nodes from the given Node* array (with the transfer index).
 */
-void print_nodes_TI(Node **nodes, const int n);
+void print_nodes_TI(Node** nodes, const int n);
 /* Print the TI variables for the given nodes from alt_tree.
 */
-void print_nodes_TIvars(Node **nodes, const int n);
+void print_nodes_TIvars(Node** nodes, const int n);
 
 
 /* Print the tree in dot format to the given filename.
 */
 void print_tree_dot(Tree* t, char* filename, bool is_reftree);
-void rec_print_ref_tree_dot(Node* n, FILE *f);
-void rec_print_alt_tree_dot(Node* n, FILE *f);
+void rec_print_ref_tree_dot(Node* n, FILE* f);
+void rec_print_alt_tree_dot(Node* n, FILE* f);
+
+/*
+Print the alt_tree with the given index appended to the given filename.
+*/
+void print_alt_tree_dot(Tree* t, char* fileprefix, int index);
+
+/* Print a node that describes the values in the positions of the alt_tree.
+*/
+void print_alttree_keynode_dot(FILE* f);
 
 
 /* - - - - - - - - - - - - - Using Heavy Paths - - - - - - - - - - - - - - - */
 
 /* Verify that all the leaves were reached in the heavypath decomposition.
 */
-void verify_all_leaves_touched(Tree *t);
+void verify_all_leaves_touched(Tree* t);
 
 #endif

@@ -41,6 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 // #define COMPARE_TBE_METHODS
+// #define ASSUME_BALANCED         //Use code that assumes balanced bootstrap trees
 
 void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff,int count_per_branch);
 void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, int num_trees, int quiet);
@@ -427,7 +428,6 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   int n = ref_tree->nb_taxa;
   int i_tree;
   int **trans_ind_tmp;
-  int **trans_ind_new;
   double *moved_species_counts;  /* array of average branch rate in which each taxon moves */
   /** Max number of branches we can see in the bootstrap tree: If it has no multifurcation : binary tree--> ntax*2-2 (if rooted...) */
   int max_branches_boot = ref_tree->nb_taxa*2-2;
@@ -449,16 +449,21 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   bool skip_hashtables = rapid;
   #ifdef COMPARE_TBE_METHODS
   skip_hashtables = false;
-  trans_ind_new = (int**) calloc(num_trees,sizeof(int*)); /* array of index sums, one per boot tree and branch. Initialized to 0. */
+  int **trans_ind_fast;
+  trans_ind_fast = (int**) calloc(num_trees,sizeof(int*)); /* array of index sums, one per boot tree and branch. Initialized to 0. */
   for(i_tree=0; i_tree< num_trees; i_tree++)
-    trans_ind_new[i_tree]  = (int*) calloc(m,sizeof(int)); /* array of index sums, one per branch. Initialized to 0. */
+    trans_ind_fast[i_tree]  = (int*) calloc(m,sizeof(int)); /* array of index sums, one per branch. Initialized to 0. */
   #endif
 
   moved_species_counts = (double*) calloc(m,sizeof(double)); /* array of average branch rate in which each taxon moves */
 
   Tree *alt_tree;
   Tree *ref_tree_copy = NULL;   // For use with parallel computation.
-  #pragma omp parallel for private(alt_tree, ref_tree_copy) shared(ref_tree, max_branches_boot, alt_tree_strings, trans_ind_tmp, trans_ind_new, taxname_lookup_table, n, m, moved_species_counts, moved_species_counts_per_branch) schedule(dynamic)
+  #ifdef COMPARE_TBE_METHODS
+  #pragma omp parallel for private(alt_tree, ref_tree_copy) shared(ref_tree, max_branches_boot, alt_tree_strings, trans_ind_tmp, trans_ind_fast, taxname_lookup_table, n, m, moved_species_counts, moved_species_counts_per_branch) schedule(dynamic)
+  #else
+  #pragma omp parallel for private(alt_tree, ref_tree_copy) shared(ref_tree, max_branches_boot, alt_tree_strings, trans_ind_tmp, taxname_lookup_table, n, m, moved_species_counts, moved_species_counts_per_branch) schedule(dynamic)
+  #endif
   for(i_tree=0; i_tree< num_trees; i_tree++){
     if(!quiet) fprintf(stderr,"New bootstrap tree : %d\n",i_tree);
     alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, skip_hashtables);
@@ -479,8 +484,13 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
       else
         ref_tree_copy = ref_tree;
     
-      compute_transfer_indices_new(ref_tree_copy, n, m, alt_tree,
-                                   trans_ind_tmp[i_tree], i_tree);
+      #ifdef ASSUME_BALANCED
+      compute_transfer_indices_fast_BALANCED(ref_tree_copy, n, m, alt_tree,
+                                             trans_ind_tmp[i_tree]);
+      #else
+      compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
+                                    trans_ind_tmp[i_tree]);
+      #endif
 
       if(omp_get_num_threads() > 1)
         free_tree(ref_tree_copy);
@@ -497,9 +507,14 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
       ref_tree_copy = copy_tree_rapidTI(ref_tree);
     else
       ref_tree_copy = ref_tree;
-    
-    compute_transfer_indices_new(ref_tree_copy, n, m, alt_tree,
-                                 trans_ind_new[i_tree], i_tree);
+
+    #ifdef ASSUME_BALANCED
+    compute_transfer_indices_fast_BALANCED(ref_tree_copy, n, m, alt_tree,
+                                           trans_ind_fast[i_tree]);
+    #else
+    compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
+                                  trans_ind_fast[i_tree]);
+    #endif
 
     if(omp_get_num_threads() > 1)
       free_tree(ref_tree_copy);
@@ -508,7 +523,8 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
                              max_branches_boot, moved_species_counts,
                              moved_species_counts_per_branch,
                              count_per_branch, dist_cutoff);
-    assert_equal_TI(trans_ind_new[i_tree], trans_ind_tmp[i_tree], ref_tree);
+
+    assert_equal_TI(trans_ind_fast[i_tree], trans_ind_tmp[i_tree], ref_tree);
     #endif
 
   }
@@ -595,8 +611,8 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
 
   #ifdef COMPARE_TBE_METHODS
   for(i_tree=0; i_tree < num_trees;i_tree++)
-    free(trans_ind_new[i_tree]);
-  free(trans_ind_new);
+    free(trans_ind_fast[i_tree]);
+  free(trans_ind_fast);
   #endif
 
   free(moved_species_counts);

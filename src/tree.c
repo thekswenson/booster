@@ -2516,6 +2516,7 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t) {
   if(target->nneigh == 1)           //leaf
   {
     target->br[0]->topo_depth = target->subtreesize = 1;
+    target->br[0]->transfer_index = -1;
     addLeafLA(t->leaves, target);
   }
   else                              //internal node
@@ -2528,8 +2529,11 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t) {
       target->subtreesize += target->neigh[i]->subtreesize;
 
     if(target != t->node0)          //set topo_depth for edges above nodes
+    {
       target->br[0]->topo_depth = min(target->subtreesize,
                                       t->nb_taxa - target->subtreesize);
+      target->br[0]->transfer_index = -1;
+    }
   }
   
     // Set the rest:
@@ -2538,6 +2542,10 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Tree* t) {
   target->d_max = target->subtreesize;
   target->d_min = 1;
   setup_heavy_light_subtrees(target);
+
+    // Set the ref_tree values:
+  target->ti_min = -1;
+  target->ti_max = -1;
 }
 
 
@@ -2743,7 +2751,7 @@ void print_nodes_TI(Node **nodes, const int n)
 /*
 Print the TI variables for the given nodes from alt_tree.
 */
-void print_nodes_TIvars(Node **nodes, const int n)
+void print_nodes_TIvars(Node** nodes, const int n)
 {
   fprintf(stderr, "Nodes:\n");
   for(int i=0; i < n; i++)
@@ -2753,11 +2761,20 @@ void print_nodes_TIvars(Node **nodes, const int n)
   }
 }
 
+/*
+Print the alt_tree with the given index appended to the given filename.
+*/
+void print_alt_tree_dot(Tree* t, char* fileprefix, int index) {
+  char *fullname = calloc(100, sizeof(char));
+  sprintf(fullname, "%s_%i.dot", fileprefix, index);
+  print_tree_dot(t, fullname, false);
+}
 
 /*
-Print the reference tree in dot format.
+Print a tree in dot format.
 */
 void print_tree_dot(Tree* t, char* filename, bool is_reftree) {
+  fprintf(stderr, "Creating DOT: %s\n", filename);
   FILE *f = fopen(filename, "w");
   if(f == NULL)
   {
@@ -2770,13 +2787,28 @@ void print_tree_dot(Tree* t, char* filename, bool is_reftree) {
   if(is_reftree)
     rec_print_ref_tree_dot(t->node0, f);
   else
+  {
+    print_alttree_keynode_dot(f);
     rec_print_alt_tree_dot(t->node0, f);
+  }
 
   fprintf(f, "  }\n");
   fclose(f);
 }
 
-void rec_print_ref_tree_dot(Node* n, FILE *f) {
+/* Print a node that describes the values in the positions of the alt_tree.
+*/
+void print_alttree_keynode_dot(FILE* f)
+{
+  fprintf(f, "  keynode [shape=record ");
+  fprintf(f, "label=\"{node id|{");
+  fprintf(f, "{d_lazy|d_min} | ");
+  fprintf(f, "{d_diff|d_max}}}");
+  fprintf(f, "\"];\n");
+}
+
+
+void rec_print_ref_tree_dot(Node* n, FILE* f) {
   if(n->nneigh == 1)
     fprintf(f, "  %i [label=\"%i (%s): %i, %i\"];\n",
             n->id, n->id, n->name, n->ti_min, n->ti_max);
@@ -2798,12 +2830,12 @@ void rec_print_ref_tree_dot(Node* n, FILE *f) {
 }
 
 void rec_print_alt_tree_dot(Node* n, FILE *f) {
-  if(n->nneigh == 1)
-    fprintf(f, "  %i [label=\"%i (%s): %i, %i\"];\n",
-            n->id, n->id, n->name, n->d_min, n->d_max);
+  if(n->nneigh == 1)      //leaf
+    fprintf(f, "  %i [label=\"%i (%s)\n%i %i\n%i %i\"];\n",
+            n->id, n->id, n->name, n->d_lazy, n->diff, n->d_min, n->d_max);
   else
-    fprintf(f, "  %i [label=\"%i: %i, %i\"];\n",
-            n->id, n->id, n->d_min, n->d_max);
+    fprintf(f, "  %i [label=\"%i\n%i %i\n%i %i\n\"];\n",
+            n->id, n->id, n->d_lazy, n->diff, n->d_min, n->d_max);
 
   if(n->nneigh > 1) {
     int startind = 1;
