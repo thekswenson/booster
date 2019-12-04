@@ -49,7 +49,7 @@ typedef struct __Node Node;
   is called the HeavyPathTree (HPT).
 
   If the PT leaf is also a leaf of alt_tree, then n->node and
-  n->child_heavypaths are NULL and the path_to_root is a vector of Path objects
+  n->child_heavypaths are NULL and the path_to_root is an array of Path objects
   that reprent the path in the HPT from the leaf to the root of the HPT.
 */
 typedef struct __Path Path;
@@ -65,15 +65,16 @@ typedef struct __Path {
   Node* node;               //The node of alt_tree corresponding to this Path.
                             //(this applies only to leaves of the PT)
 
-  Path** child_heavypaths;  //The vector of Path trees pendant to this Path.
-  int num_child_paths;      //The size of the child_heavypaths vector.
+  Path** child_heavypaths;  //The array of Path trees pendant to this Path.
+  int num_child_paths;      //The size of the child_heavypaths array.
   Path* parent_heavypath;   //The Path that this PT hangs on.
 
   int total_depth;          //# of Path structs to root through all PTs
-                            // (# nodes through entire HPT).
+                            // (i.e. # nodes in path to HPT root).
 
-  Path** path_to_root;      //Vector of Path objects to root.
-                            // (only set if this is a leaf of the HPT)
+  Path*** path_to_root_p;   //Pointer to array of Path objects to root.
+                            // (this points to memory shared between all HPT
+                            //  leaves -- it is set once when used)
 
     //The transfer index (TI) values:
   int diff_path;     //Diff to add to subtree rooted on path.
@@ -100,19 +101,22 @@ Path of the Path tree.
         child_heavypath pointer).
         We call the entire tree the HeavyPathTree (HPT)
 */
-Path* do_heavy_decomposition(Node *root);
-Path* heavy_decomposition(Node *root, int depth);
+Path* do_heavy_decomposition(Node* root);
+Path* heavy_decomposition(Node* root, int depth, int* maxdepth,
+                          Path*** path_to_root_pointer);
 
 /* Free the memory for the HeavyPathTree (allocated in heavy_decomposition).
 */
-void free_HPT(Path* node);
+void free_HPT(Path* root);
+void free_HPT_rec(Path* node);
 
 /* For the given heavypath, create a Path structure that represents the path.
 Split the path in half and create a Path for each half.  If a half is a single
 node, then hang the next heavy path off of it. If it's a leaf of alt_tree, then
 link the Path to the corresponding leaf in alt_tree.
 */
-Path* partition_heavypath(Node **n, int length, int depth);
+Path* partition_heavypath(Node** n, int length, int depth, int* maxdepth,
+                          Path*** path_to_root_pointer);
 
 /*
 Return a Path for the given node of alt_tree.  The Path will be a leaf
@@ -121,7 +125,8 @@ Either 1) the leaf will point to a leaf node of alt_tree,
 or     2) child_heavypath will point to a heavypath representing the
           descendant of the alt_tree node.
 */
-Path* heavypath_leaf(Node *node, int depth);
+Path* heavypath_leaf(Node* node, int depth, int* maxdepth,
+                     Path*** path_to_root_pointer);
 
 /* Return the heavypath rooted at the node.
    ** user responsible for memory of returned heavypath.
@@ -130,28 +135,34 @@ Node** get_heavypath(Node* root, int* length);
 
 /* Return the length of the heavy path rooted at this node.
 */
-int get_heavypath_length(Node *n);
+int get_heavypath_length(Node* n);
 
 /* Return True if the (sub)Path corresponds to a leaf of alt_tree (i.e. it is a
 leaf of the HPT).
 */
-bool is_HPT_leaf(Path *n);
+bool is_HPT_leaf(Path* n);
 
 /* Print the given heavypath.
 */
-void print_heavypath(Node **heavypath, int length);
+void print_heavypath(Node** heavypath, int length);
 
 
 /*
-Descend to the leaves of the HPT. Once there, create the path_to_root vector
+Descend to the leaves of the HPT. Once there, create the path_to_root array
 for that Path object.
 */
-void set_paths_to_root(Path* node);
+//void set_paths_to_root(Path* node);
 
 /* Build a path from this Path leaf up to the root of the HPT, following each
 PT to it's root in turn.
 */
-Path** path_to_root_HPT(Path* leaf);
+Path** get_path_to_root_HPT(Path* leaf);
+
+/* Build a path from this Path leaf up to the root of the HPT, following each
+PT to it's root in turn.
+*/
+void set_path_to_root_HPT(Path* leaf, Path** path_to_root);
+
 
 /* Return the root of the HPT with the given alt_tree leaf.
 */
@@ -160,7 +171,7 @@ Path* get_HPT_root(Node* leaf);
 /* Reset the path and subtree min and max, along with the diff values for the
 path from the given leaf to the root of the HPT.
 */
-void reset_leaf_HPT(Node *leaf);
+void reset_leaf_HPT(Node* leaf);
 
 /*--------------------- OUTPUT FUNCTIONS -------------------------*/
 
@@ -175,28 +186,28 @@ void print_HPT_node(const Path* n);
 
 /* Recursively print the subPath.
 */
-void print_HPT_subpath_dot(Path* n, FILE *f);
+void print_HPT_subpath_dot(Path* n, FILE* f);
 
 /* Recursively print the subtree.
 */
-void print_HPT_subtree_dot(Node* n, FILE *f);
+void print_HPT_subtree_dot(Node* n, FILE* f);
 
 
 
 /* Print a string representing this Path node formatted for dot output.
 */
-void print_HPT_node_dot(Path* n, FILE *f);
+void print_HPT_node_dot(Path* n, FILE* f);
 
 /* Print a string that formats a heavypath node in a PT.
 */
-void print_HPT_hpnode_dot(Path* n, FILE *f);
+void print_HPT_hpnode_dot(Path* n, FILE* f);
 
 /* Print a string that formats a PT node.
 */
-void print_HPT_ptnode_dot(Path* n, FILE *f);
+void print_HPT_ptnode_dot(Path* n, FILE* f);
 
 /* Print a descriptive node.
 */
-void print_HPT_keynode_dot(FILE *f);
+void print_HPT_keynode_dot(FILE* f);
 
 #endif
