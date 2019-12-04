@@ -23,9 +23,9 @@ in the alt_tree.
 
 At the end, transfer_index[i] will have the transfer index for edge i.
 */
-void compute_transfer_indices_new(Tree *ref_tree, const int n,
-                                  const int m, Tree *alt_tree,
-                                  int *transfer_index, int iteration);
+void compute_transfer_indices_fast(Tree *ref_tree, const int n,
+                                   const int m, Tree *alt_tree,
+                                   int *transfer_index);
 
 /* Compute the Transfer Index (TI) for all edges, comparing a reference tree to
 an alternative balanced (bootstrap) tree.  This does not do a heavypath
@@ -44,9 +44,9 @@ each leaf.
 
 At the end, transfer_index[i] will have the transfer index for edge i.
 */
-void compute_transfer_indices_new_BALANCED(Tree *ref_tree, const int n,
-                                           const int m, Tree *alt_tree,
-                                           int *transfer_index);
+void compute_transfer_indices_fast_BALANCED(Tree *ref_tree, const int n,
+                                            const int m, Tree *alt_tree,
+                                            int *transfer_indices);
 
 
 /* Compute the edge Transfer Index from the child node transfer index.
@@ -55,7 +55,7 @@ void nodeTI_to_edgeTI(Tree* ref_tree);
 
 /* Copy the edge Transfer Index values into the given array.
 */
-void edgeTI_to_array(Tree *tree, int *transfer_index);
+void edgeTI_to_array(Tree *tree, int *transfer_indices);
 
 /* Follow a leaf in ref_tree up to the root.  Call add_leaf on the leaves in the
 subtrees off the path.
@@ -63,7 +63,7 @@ subtrees off the path.
 If use_HPT is false, then assume a balanced alt_tree, otherwise use a heavypath
 tree on the alt_tree.
 */
-void add_heavy_path(Node* u, Tree* alt_tree, int use_HPT);
+void add_heavy_path(Node* u, Tree* alt_tree, bool use_HPT);
 
 /* Follow a leaf in ref_tree up to the root. Call reset_leaf on the leaves in
 the subtrees off the path.
@@ -71,7 +71,7 @@ the subtrees off the path.
 If use_HPT is false, then assume balanced alt_tree, otherwise update reset
 values on the HeavyPath Tree.
 */
-void reset_heavy_path(Node* u, int use_HTP);
+void reset_heavy_path(Node* u, bool use_HTP);
 
 /* Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
 leaf to the root.
