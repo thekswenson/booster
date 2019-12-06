@@ -175,6 +175,10 @@ Tree* new_tree(const char* name);
 Edge* connect_to_father(Node* father, Node* son, Tree* current_tree);
 Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_left, double new_edge_length, char* node_name);
 
+void addTip(Tree *t, char* name);
+bool isNewickChar(char ch);
+char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node, Edge* edge, int* level);
+
 
 /* Replicate only the parts of the given tree important to the computation of
 the rapid Transfer Index.

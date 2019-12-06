@@ -1191,7 +1191,6 @@ Edge* connect_to_father(Node* father, Node* son, Tree* current_tree) {
 // Copied for a large part from https://github.com/evolbioinfo/gotree/blob/master/io/newick/newick_parser.go
 Tree* parse_nh_string(char* in_str) {
 	Tree *t = (Tree *) malloc(sizeof(Tree));
-	int begin, end; /* to delimitate the string to further process */
 	int i; /* loop counter */
 	int in_length = strlen(in_str);
 	int level = 0;
@@ -1419,7 +1418,7 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 			} else {
 				// Else we have a new tip
 				if(prev_token != -1 && prev_token != ','){
-					fprintf(stderr,"Newick Error: There should not be a tip name in this context: [%s], len: %d, prev_token: %c, position: %d",name,strlen(name),prev_token, *position);
+					fprintf(stderr,"Newick Error: There should not be a tip name in this context: [%s], len: %ld, prev_token: %c, position: %d",name,strlen(name),prev_token, *position);
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
 				if(node == NULL ){
@@ -1440,7 +1439,6 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
                         bool skip_hashtables) {
 	/* trick: iff taxname_lookup_table is NULL, we set it according to the tree read, otherwise we use it as the reference taxname lookup table */
-	int i;
  	Tree* mytree = parse_nh_string(big_string);
 	mytree->leaves = allocateLA(mytree->nb_taxa);
 		
