@@ -300,7 +300,7 @@ int test_parse(){
   char* buffer = NULL;
   size_t bufferSize = 0;
   FILE* myStream = open_memstream(&buffer, &bufferSize);
-  write_nh_tree(ref_tree, myStream);
+  write_nh_tree(ref_tree, myStream,false);
   fclose(myStream);
 
   if(strcmp( buffer,  ref_tree_string) != 0){

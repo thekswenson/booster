@@ -243,6 +243,7 @@ Node* new_node(const char* name, Tree* t, int degree) {
 	nn->neigh = malloc(degree * sizeof(Node*));
 	nn->br = malloc(degree * sizeof(Edge*));
 	nn->id = t->nb_nodes;
+	nn->name = NULL;
 	nn->nneigh_space = degree;
 	if(degree==1 && !name) { fprintf(stderr,"Fatal error : won't create a leaf with no name. Aborting.\n"); Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);}
 	if(name) { nn->name = strdup(name); } else nn->name = NULL;
@@ -1376,7 +1377,6 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 				end++;
 			}
 			char* name = malloc((end-*position+1)*sizeof(char));
-			name[end-*position]='\0';
 			for(int i=0; i<(end-*position); i++){
 				name[i] = in_str[*position+i];
 			}
@@ -1400,6 +1400,7 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 					} else {
 						edge->branch_support = bs;
 						edge->has_branch_support = 1;
+						free(name);
 					}
 				}
 			} else {
@@ -1921,7 +1922,7 @@ void write_nh_tree(Tree* tree, FILE* stream, bool newline) {
 	}
 	putc(')', stream);
 
-	if (node->name) fprintf(stream, "--%s--", node->name);
+	if (node->name) fprintf(stream, "%s", node->name);
 	/* terminate with a semicol AND and end of line */
 	putc(';', stream); //putc('\n', stream);
 	if(newline)
@@ -1954,7 +1955,7 @@ void write_subtree_to_stream(Node* current, Node* parent, Edge *e, FILE* stream)
 		if(e->has_branch_support){
 			fprintf(stream, "%g:%g", e->branch_support, e->brlen); /* distance to father */
 		}else{
-			fprintf(stream, "%s:%g", (current->name ? current->name : "None"), e->brlen); /* distance to father */
+			fprintf(stream, "%s:%g", (current->name ? current->name : ""), e->brlen); /* distance to father */
 		}
 	}
 } /* end write_subtree_to_stream */
