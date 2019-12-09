@@ -41,7 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 // #define COMPARE_TBE_METHODS
-// #define ASSUME_BALANCED         //Use code that assumes balanced bootstrap trees
+// #define ASSUME_BALANCED      //Use code that assumes balanced bootstrap trees
 
 void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff,int count_per_branch);
 void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, int num_trees, int quiet);
@@ -501,7 +501,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
                                moved_species_counts_per_branch,
                                count_per_branch, dist_cutoff);
 
-    #else
+    #else             //COMPARE_TBE_METHODS
       //This compares the old and rapid methods:
     if(omp_get_num_threads() > 1)
       ref_tree_copy = copy_tree_rapidTI(ref_tree);

@@ -1943,7 +1943,7 @@ void write_nh_tree(Tree* tree, FILE* stream) {
 
 	if (node->name) fprintf(stream, "%s", node->name);
 	/* terminate with a semicol AND and end of line */
-	putc(';', stream); //putc('\n', stream);
+	putc(';', stream); putc('\n', stream);
 }
 
 /* the following function writes the subtree having root "node" and not including "node_from". */

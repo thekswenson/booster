@@ -39,7 +39,6 @@ Tree* gen_random_tree(Tree *tree){
   /* zero the number of taxa inserted so far in this tree */
   int nb_inserted_taxa = 0,edge_ind;
   Tree* my_tree = NULL;
-  int i;
   /* shuffle the indices we are going to use to determine the names of leaves */
   shuffle(indices, tree->nb_taxa, sizeof(int));
   
