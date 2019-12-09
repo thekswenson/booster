@@ -1343,6 +1343,10 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 			double len = 0.0;
 			end = *position;
 			while(!isNewickChar(in_str[end]) && end<in_length){
+				if(!isdigit(in_str[end]) && in_str[end]!='E' && in_str[end]!='e' && in_str[end]!='-' && in_str[end]!='.'){
+					fprintf(stderr,"Newick Error: Wrong character in branch length: %c\n",in_str[end]);
+					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+				}
 				end++;
 			}
 			char* lenstr = malloc((end-*position+1)*sizeof(char));
@@ -1351,7 +1355,7 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 			}
 			lenstr[end-*position]='\0';
 			*position=end;
-			// Here we should have a node name or a bootstrap value
+			// Here we should have a branch length
 			if (sscanf(lenstr, "%le", &len) != 1) {
 				fprintf(stderr,"Newick Error: Wrong branch length: %s\n",lenstr);
 				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
