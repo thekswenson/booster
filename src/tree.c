@@ -1341,20 +1341,20 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 		case ':':
 			(*position)++;
 			double len = 0.0;
-			int decimals = 0;
-			while(isdigit(in_str[*position]) || in_str[*position]=='.'){
-				if(in_str[*position] == '.'){
-					decimals=10;
-				}else{
-					if(decimals){
-						len+=(1.0/((double)decimals)*(double)(in_str[*position]-'0'));
-						decimals*=10;
-					}else{
-						len*=10.0;
-						len+=1.0*(in_str[*position]-'0');
-					}
-				}
-				(*position)++;
+			end = *position;
+			while(!isNewickChar(in_str[end]) && end<in_length){
+				end++;
+			}
+			char* lenstr = malloc((end-*position+1)*sizeof(char));
+			for(int i=0; i<(end-*position); i++){
+				lenstr[i] = in_str[*position+i];
+			}
+			lenstr[end-*position]='\0';
+			*position=end;
+			// Here we should have a node name or a bootstrap value
+			if (sscanf(lenstr, "%le", &len) != 1) {
+				fprintf(stderr,"Newick Error: Wrong branch length: %s\n",lenstr);
+				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 			}
 			edge->brlen = (len < MIN_BRLEN ? MIN_BRLEN : len);
 			edge->had_zero_length = (len < MIN_BRLEN);
