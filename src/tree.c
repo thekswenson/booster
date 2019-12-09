@@ -1156,8 +1156,10 @@ Edge* connect_to_father(Node* son, Node* father, Tree* current_tree) {
 	edge->right = son;
 	edge->left = father;
 
+	edge->branch_support = 0.0;
 	edge->has_branch_support = 0;
 	edge->had_zero_length = 1;
+	edge->brlen = 0.0;
 
 	// Resize arrays if necessary
 	if(father->nneigh>=father->nneigh_space){

@@ -409,7 +409,9 @@ void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, in
     for (i = 0; i <  ref_tree->nb_edges; i++) {
       if(ref_tree->a_edges[i]->right->nneigh == 1) { continue; }
       /* the bootstrap value for a branch is inscribed as the name of its descendant (always right side of the edge, by convention) */
-      if(ref_tree->a_edges[i]->right->name) free(ref_tree->a_edges[i]->right->name); /* clear name if existing */
+      if(ref_tree->a_edges[i]->right->name){
+        free(ref_tree->a_edges[i]->right->name); /* clear name if existing */
+      }
       ref_tree->a_edges[i]->right->name = (char*) malloc(16 * sizeof(char));
       support   = (double) nb_found[i] * 1.0 / num_trees;
       sprintf(ref_tree->a_edges[i]->right->name, "%.6f", support);
@@ -549,7 +551,9 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
       if(ref_tree->a_edges[i]->right->nneigh == 1) { continue; }
 
       /* the bootstrap value for a branch is inscribed as the name of its descendant (always right side of the edge, by convention) */
-      if(ref_tree->a_edges[i]->right->name) free(ref_tree->a_edges[i]->right->name); /* clear name if existing */
+      if(ref_tree->a_edges[i]->right->name){
+        free(ref_tree->a_edges[i]->right->name); /* clear name if existing */
+      }
       ref_tree->a_edges[i]->right->name = (char*) malloc(16 * sizeof(char));
       card = ref_tree->a_edges[i]->hashtbl->num_items;
       if (card > n/2) { card = n - card; }	  
@@ -565,7 +569,9 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
       
       if(ref_raw_tree!=NULL){
         /* the bootstrap value for a branch is inscribed as the name of its descendant as id|avgdist|depth */
-        if(ref_raw_tree->a_edges[i]->right->name) free(ref_raw_tree->a_edges[i]->right->name); /* clear name if existing */
+        if(ref_raw_tree->a_edges[i]->right->name){
+          free(ref_raw_tree->a_edges[i]->right->name); /* clear name if existing */
+        }
         ref_raw_tree->a_edges[i]->right->name = (char*) malloc(16 * sizeof(char));
         card = ref_raw_tree->a_edges[i]->hashtbl->num_items;
         if (card > n/2) { card = n - card; }
