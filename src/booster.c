@@ -539,7 +539,6 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
     }
   }
 
-  int card;
   double bootstrap_val, avg_dist;
 
   if(num_trees != 0) {
@@ -555,8 +554,6 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
         free(ref_tree->a_edges[i]->right->name); /* clear name if existing */
       }
       ref_tree->a_edges[i]->right->name = (char*) malloc(16 * sizeof(char));
-      card = ref_tree->a_edges[i]->hashtbl->num_items;
-      if (card > n/2) { card = n - card; }	  
       avg_dist      = (double) trans_ind[i] * 1.0 / num_trees;
       bootstrap_val = (double) 1.0 - avg_dist * 1.0 / (1.0 * ref_tree->a_edges[i]->topo_depth-1.0);
 
@@ -573,8 +570,6 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
           free(ref_raw_tree->a_edges[i]->right->name); /* clear name if existing */
         }
         ref_raw_tree->a_edges[i]->right->name = (char*) malloc(16 * sizeof(char));
-        card = ref_raw_tree->a_edges[i]->hashtbl->num_items;
-        if (card > n/2) { card = n - card; }
         avg_dist      = (double) trans_ind[i] * 1.0 / num_trees;
         sprintf(ref_raw_tree->a_edges[i]->right->name, "%d|%.6f|%d", ref_raw_tree->a_edges[i]->id, avg_dist,ref_tree->a_edges[i]->topo_depth);
       }
