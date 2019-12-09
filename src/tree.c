@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "tree.h"
+#include "node_stack.h"
 #include "externs.h"
 #include <ctype.h>
 
@@ -1231,10 +1232,10 @@ Tree* parse_nh_string(char* in_str) {
 		fprintf(stderr,"Error: found %c, expected '('.\n",in_str[i]); return NULL;
 	}
 
-	// Now we can parse recursively the tree
-	// Read a field.
+	// Now we can parse iteratively the tree
 	level = 0;
-	last_tok = parse_recur(t, in_str, &i, in_length, NULL, NULL, &level);
+	last_tok = parse_iter(t, in_str, &i, in_length, &level);
+	//printf("Root ??? %d\n",t->node0);
 	if(level != 0) {
 		fprintf(stderr,"Newick Error : Mismatched parenthesis after parsing.\n"); return NULL;
 	}
@@ -1288,9 +1289,14 @@ bool isNewickChar(char ch){
 }
 
 // Copied for a large part from https://github.com/evolbioinfo/gotree/blob/master/io/newick/newick_parser.go
-char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node, Edge* edge, int* level){
-	Node* new_node = node;
+char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level){
+	NodeStack *ns = new_nodestack();
+	NodeStackElt *elt = NULL;
+	Node *new_node = NULL;
+	Node *node = NULL;
+	Edge *edge = NULL;
 	char prev_token = -1;
+
 	int end;
 	for(;;){
 		while (isspace(in_str[*position]) && *position<in_length){
@@ -1298,47 +1304,59 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 		}
 		switch(in_str[*position]) {
 		case '(':
-			new_node = newNode(t);
 			if(node == NULL){
 				if(*level > 0){
 					fprintf(stderr,"NULL node at depth > 0");
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
-				t->node0 = new_node; // The Root
-				node = new_node;
+				node = newNode(t);
+				nodestack_push(ns, node, NULL);
+				t->node0 = node; // The Root
 			} else {
 				if(*level == 0){
 					fprintf(stderr,"An open parenthesis at level 0 of recursion... Forgot a ';' at the end of previous tree?\n");
   					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
+				new_node = newNode(t);
 				edge = connect_to_father(new_node, node, t);
+				node = new_node;
+				nodestack_push(ns, node, edge);
 			}
 			(*level)++;
 			(*position)++;
-			prev_token= parse_recur(t, in_str, position, in_length, new_node, edge, level);
-			if(prev_token != ')'){
-				fprintf(stderr,"Newick Error: Mismatched parenthesis after parseRecur.\n");
-				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
-			}
+			prev_token='(';
 			break;
 		case ')':
 			(*level)--;
 			(*position)++;
-			return ')';
+			prev_token=')';
+			elt = nodestack_pop(ns); free(elt);
+			if(ns->head == NULL){
+			  fprintf(stderr,"Newick Error: No node left in the stack, not even the root.\n");
+			  Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+			}
+			node = ns->head->node;
+			edge = ns->head->edge;
+			break;
 		case '[':
 			while (in_str[*position]!=']' && *position<in_length){
 				(*position)++;
 			}
 			if(*position==in_length){
-			    fprintf(stderr,"Error: No ']' to end comment.\n");
+			  fprintf(stderr,"Error: No ']' to end comment.\n");
 			    Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 			}
 			(*position)++;
+			prev_token=']';
 			break;
 		case ']':
 			fprintf(stderr,"Newick Error: Mismatched ] here...\n");
 			Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 		case ':':
+			if(prev_token!=')' && prev_token!='n'){
+			  fprintf(stderr,"Newick Error: Branch length misplaced : %c\n",prev_token);
+			  Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+			}
 			(*position)++;
 			double len = 0.0;
 			end = *position;
@@ -1364,12 +1382,15 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 			  fprintf(stderr,"Newick Warning: Branch length attached to root: Ignored\n");
 			  break;
 			}else{
+			  prev_token = ':';
 			  edge->brlen = (len < MIN_BRLEN ? MIN_BRLEN : len);
 			  edge->had_zero_length = (len < MIN_BRLEN);
 			  break;
 			}
 		case ',':
-			new_node = NULL;
+			elt = nodestack_pop(ns); free(elt);
+			node = ns->head->node;
+			edge = ns->head->edge;
 			prev_token = ',';
 			(*position)++;
 			break;
@@ -1379,8 +1400,11 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 			}
 			(*position)++;
+			prev_token=';';
+			nodestack_free(ns);
 			return in_str[(*position)-1];
 		case EOF:
+			nodestack_free(ns);
 			return in_str[*position];
 		default:
 			end = *position;
@@ -1390,19 +1414,18 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 			char* name = malloc((end-*position+1)*sizeof(char));
 			for(int i=0; i<(end-*position); i++){
 				name[i] = in_str[*position+i];
-			}
-			name[end-*position]='\0';
+			}			name[end-*position]='\0';
 			*position=end;
 			// Here we should have a node name or a bootstrap value
 			if(prev_token == ')'){
 				double bs; 
 				if (sscanf(name, "%le", &bs) != 1) {
 					/* Not a bootstrap value: A node name*/
-					if(new_node == NULL){
+					if(node == NULL){
 						fprintf(stderr,"Newick Error: Cannot assign node name to nil node");
 						Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 					}
-					new_node->name = name;
+					node->name = name;
 				}else{
 					/* A bootstrap value*/
 					if(*level == 0){
@@ -1416,7 +1439,7 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 				}
 			} else {
 				// Else we have a new tip
-				if(prev_token != -1 && prev_token != ','){
+				if(prev_token != ',' && prev_token !='('){
 					fprintf(stderr,"Newick Error: There should not be a tip name in this context: [%s], len: %ld, prev_token: %c, position: %d",name,strlen(name),prev_token, *position);
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
@@ -1429,6 +1452,8 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 				addTip(t,strdup(name));
 				edge = connect_to_father(new_node, node, t);
 				prev_token = 'n';
+				node = new_node;
+				nodestack_push(ns, node, edge);
 			}
 			break;
 		}

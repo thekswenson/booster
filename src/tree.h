@@ -175,7 +175,7 @@ Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_
 
 void addTip(Tree *t, char* name);
 bool isNewickChar(char ch);
-char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node, Edge* edge, int* level);
+char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level);
 
 
 /* Replicate only the parts of the given tree important to the computation of
