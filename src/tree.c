@@ -1360,15 +1360,20 @@ char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node
 				fprintf(stderr,"Newick Error: Wrong branch length: %s\n",lenstr);
 				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 			}
-			edge->brlen = (len < MIN_BRLEN ? MIN_BRLEN : len);
-			edge->had_zero_length = (len < MIN_BRLEN);
-			break;
+			if(*level == 0){
+			  fprintf(stderr,"Newick Warning: Branch length attached to root: Ignored\n");
+			  break;
+			}else{
+			  edge->brlen = (len < MIN_BRLEN ? MIN_BRLEN : len);
+			  edge->had_zero_length = (len < MIN_BRLEN);
+			  break;
+			}
 		case ',':
 			new_node = NULL;
 			prev_token = ',';
 			(*position)++;
 			break;
-        case ';':
+		case ';':
 			if((*level) != 0){
 				fprintf(stderr,"Newick Error: Mismatched parenthesis at ;");
 				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
