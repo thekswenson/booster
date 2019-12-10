@@ -1299,7 +1299,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 
 	int end;
 	for(;;){
-		while (isspace(in_str[*position]) && *position<in_length){
+		while (isspace(in_str[*position]) && *position < in_length){
 			(*position)++;
 		}
 		switch(in_str[*position]) {
@@ -1312,7 +1312,8 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 				node = newNode(t);
 				nodestack_push(ns, node, NULL);
 				t->node0 = node; // The Root
-			} else {
+			}
+      else {
 				if(*level == 0){
 					fprintf(stderr,"An open parenthesis at level 0 of recursion... Forgot a ';' at the end of previous tree?\n");
   					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
@@ -1326,6 +1327,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			(*position)++;
 			prev_token='(';
 			break;
+
 		case ')':
 			(*level)--;
 			(*position)++;
@@ -1338,8 +1340,9 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			node = ns->head->node;
 			edge = ns->head->edge;
 			break;
+
 		case '[':
-			while (in_str[*position]!=']' && *position<in_length){
+			while (in_str[*position]!=']' && *position < in_length){
 				(*position)++;
 			}
 			if(*position==in_length){
@@ -1349,9 +1352,11 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			(*position)++;
 			prev_token=']';
 			break;
+
 		case ']':
 			fprintf(stderr,"Newick Error: Mismatched ] here...\n");
 			Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+
 		case ':':
 			if(prev_token!=')' && prev_token!='n'){
 			  fprintf(stderr,"Newick Error: Branch length misplaced : %c\n",prev_token);
@@ -1360,7 +1365,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			(*position)++;
 			double len = 0.0;
 			end = *position;
-			while(!isNewickChar(in_str[end]) && end<in_length){
+			while(!isNewickChar(in_str[end]) && end < in_length){
 				if(!isdigit(in_str[end]) && in_str[end]!='E' && in_str[end]!='e' && in_str[end]!='-' && in_str[end]!='.'){
 					fprintf(stderr,"Newick Error: Wrong character in branch length: %c\n",in_str[end]);
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
@@ -1381,12 +1386,14 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			if(*level == 0){
 			  fprintf(stderr,"Newick Warning: Branch length attached to root: Ignored\n");
 			  break;
-			}else{
+			}
+      else{
 			  prev_token = ':';
 			  edge->brlen = (len < MIN_BRLEN ? MIN_BRLEN : len);
 			  edge->had_zero_length = (len < MIN_BRLEN);
 			  break;
 			}
+
 		case ',':
 			elt = nodestack_pop(ns); free(elt);
 			node = ns->head->node;
@@ -1394,6 +1401,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			prev_token = ',';
 			(*position)++;
 			break;
+
 		case ';':
 			if((*level) != 0){
 				fprintf(stderr,"Newick Error: Mismatched parenthesis at ;");
@@ -1403,12 +1411,14 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			prev_token=';';
 			nodestack_free(ns);
 			return in_str[(*position)-1];
+
 		case EOF:
 			nodestack_free(ns);
 			return in_str[*position];
+
 		default:
 			end = *position;
-			while(!isNewickChar(in_str[end]) && end<in_length){
+			while(!isNewickChar(in_str[end]) && end < in_length){
 				end++;
 			}
 			char* name = malloc((end-*position+1)*sizeof(char));
@@ -1426,20 +1436,23 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 						Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 					}
 					node->name = name;
-				}else{
+				}
+        else{
 					/* A bootstrap value*/
 					if(*level == 0){
 						fprintf(stderr,"Newick : Support values attached to root node are ignored");
 						Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
-					} else {
+					}
+          else {
 						edge->branch_support = bs;
 						edge->has_branch_support = 1;
 						free(name);
 					}
 				}
-			} else {
+			}
+      else {
 				// Else we have a new tip
-				if(prev_token != ',' && prev_token !='('){
+				if(prev_token != ',' && prev_token != '('){
 					fprintf(stderr,"Newick Error: There should not be a tip name in this context: [%s], len: %ld, prev_token: %c, position: %d",name,strlen(name),prev_token, *position);
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
