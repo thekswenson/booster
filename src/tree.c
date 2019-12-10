@@ -1299,7 +1299,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 
 	int end;
 	for(;;){
-		while (isspace(in_str[*position]) && *position < in_length){
+		while (*position < in_length && isspace(in_str[*position])){
 			(*position)++;
 		}
 		switch(in_str[*position]) {
@@ -1342,7 +1342,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 			break;
 
 		case '[':
-			while (in_str[*position]!=']' && *position < in_length){
+			while (*position < in_length && in_str[*position]!=']'){
 				(*position)++;
 			}
 			if(*position==in_length){
@@ -1418,7 +1418,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 
 		default:
 			end = *position;
-			while(!isNewickChar(in_str[end]) && end < in_length){
+			while(end < in_length && !isNewickChar(in_str[end])){
 				end++;
 			}
 			char* name = malloc((end-*position+1)*sizeof(char));
