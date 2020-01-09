@@ -528,6 +528,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
 
     assert_equal_TI(trans_ind_fast[i_tree], trans_ind_tmp[i_tree], ref_tree);
     #endif
+    free_tree(alt_tree);
   }
   #pragma omp barrier
 
@@ -704,7 +705,6 @@ void compute_transfer_indices(Tree *ref_tree, const int n, const int m,
   }
 
   free_matrices(m, &c_matrix, &i_matrix, &hamming, &min_dist,&min_dist_edge);
-  free_tree(alt_tree);
   free(moved_species);
 }
 

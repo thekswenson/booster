@@ -76,26 +76,28 @@ typedef struct __Node {
 	struct __Edge** br;	/* corresponding branches going from this node */
 	double mheight;	/* the height of a node is its min distance to a leaf */
   
-         // Variables used for rapid transfer index calculation on alt_tree:
-         // (only in absence of heavypath decomposition and the alt_tree)
-   int subtreesize; // Number of leaves in subtree rooted at this node (assume rooted)
-   int depth;       // The depth of the node (from the root)
-   int d_lazy;      // The lazily updated transfer distance
-   int diff;        // For a node v, td(u,v) = d_lazy + Sum_{n \in Pv} diff_n
-                    // (Pv is the path from v to the root)
-   int d_min;       // Minimum TI found in this subtree
-   int d_max;       // Maximum TI found in this subtree (used for unrooted TI)
+        // Variables used for rapid transfer index calculation on alt_tree:
+        // (only in absence of heavypath decomposition and the alt_tree)
+  int subtreesize; // Number of leaves in subtree rooted at this node (assume rooted)
+  int depth;       // The depth of the node (from the root)
+  int d_lazy;      // The lazily updated transfer distance
+  int diff;        // For a node v, td(u,v) = d_lazy + Sum_{n \in Pv} diff_n
+                   // (Pv is the path from v to the root)
+  int d_min;       // Minimum TI found in this subtree
+  int d_max;       // Maximum TI found in this subtree (used for unrooted TI)
 
-         // Variables used for rapid transfer index calculation on the heavypath
-         // decomposition for alt_tree:
-   Path* path;      // Corresponding Path from the heavypath tree for this leaf.
+        // Variables used for rapid transfer index calculation on the heavypath
+        // decomposition for alt_tree:
+  Path* path;      // Corresponding Path from the heavypath tree for this leaf.
+                   // (allocated and freed in compute_transfer_indices_fast())
+  
 
-         // Variables used for rapid transfer index calculation on ref_tree:
-   int ti_min;       // The (rooted) transfer index for this node.
-   int ti_max;       // The (rooted) maximum transfer distance for this node.
-   LeafArray* lightleaves;   // The leaves in the light children.
-   Node* heavychild; // The heaviest child
-   Node* other;      // Corresponding leaf in another tree (see set_leaf_bijection())
+        // Variables used for rapid transfer index calculation on ref_tree:
+  int ti_min;       // The (rooted) transfer index for this node.
+  int ti_max;       // The (rooted) maximum transfer distance for this node.
+  LeafArray* lightleaves;   // The leaves in the light children.
+  Node* heavychild; // The heaviest child
+  Node* other;      // Corresponding leaf in another tree (see set_leaf_bijection())
 } Node;
 
 
@@ -165,7 +167,7 @@ int index_toplevel_colon(char* in_str, int begin, int end);
 void parse_double(char* in_str, int begin, int end, double* location);
 
 /* creating a node, a branch, a tree: to create a tree from scratch, not from parsing */
-Node* newNode(Tree *t);
+Node* newNode(Tree* t);
 Node* new_node(const char* name, Tree* t, int degree);
 Edge* new_edge(Tree* t);
 Tree* new_tree(const char* name);

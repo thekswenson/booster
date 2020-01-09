@@ -304,6 +304,9 @@ Tree* new_tree(const char* name) {
 	return t;
 }
 
+
+
+
 /*
 Replicate only the parts of the given tree important to the computation of
 the rapid Transfer Index (don't copy things like hashtables).
@@ -2025,8 +2028,8 @@ void free_node(Node* node) {
 	if (node == NULL) return;
 	if (node->name) free(node->name);
 	if (node->comment) free(node->comment);
+  if (node->lightleaves) freeLA(node->lightleaves);
 
-	freeLA(node->lightleaves);
 	free(node->neigh);
 	free(node->br);
 	free(node);
@@ -2046,7 +2049,7 @@ void free_tree(Tree* tree) {
 		free(tree->taxa_names);
 	}
 
-	freeLA(tree->leaves);
+	if(tree->leaves) freeLA(tree->leaves);
 	free(tree);
 }
 
