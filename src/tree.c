@@ -1386,6 +1386,8 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 				fprintf(stderr,"Newick Error: Wrong branch length: %s\n",lenstr);
 				Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 			}
+			free(lenstr);
+
 			if(*level == 0){
 			  fprintf(stderr,"Newick Warning: Branch length attached to root: Ignored\n");
 			  break;
