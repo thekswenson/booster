@@ -1440,20 +1440,19 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 					}
 					node->name = name;
 				}
-        else{
+				else{
 					/* A bootstrap value*/
 					if(*level == 0){
 						fprintf(stderr,"Newick : Support values attached to root node are ignored");
-						Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 					}
-          else {
+					else {
 						edge->branch_support = bs;
 						edge->has_branch_support = 1;
 						free(name);
 					}
 				}
 			}
-      else {
+			else {
 				// Else we have a new tip
 				if(prev_token != ',' && prev_token != '('){
 					fprintf(stderr,"Newick Error: There should not be a tip name in this context: [%s], len: %ld, prev_token: %c, position: %d",name,strlen(name),prev_token, *position);
