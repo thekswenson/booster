@@ -65,8 +65,8 @@ void compute_transfer_indices_fast(Tree *ref_tree, const int n,
 
 /*
 Compute the Transfer Index (TI) for all edges, comparing a reference tree to
-an alternative balanced (bootstrap) tree.  This does not do a heavypath
-decomposition of the aslternative tree.
+an alternative _balanced_ (bootstrap) tree.  This does not do a heavypath
+decomposition of the alternative tree.
 
 This is the faster version that is based on assigning an index by traversing
 the ref_tree.
@@ -292,16 +292,26 @@ void reset_leaf(Node *leaf)
     //Follow the path from the root to the leaf, resetting the values along
     //the way:
   Node *n = leaf;
+  Node *pathchild = NULL;
   while(1)                     //While not the root
   {
     n->d_lazy = n->subtreesize;
     n->d_max = n->subtreesize;
     n->d_min = 1;
     n->diff = 0;
+    clearLA(n->exclude);
     if(n->nneigh != 1)         //not the leaf
     {
       for(int i=1; i < n->nneigh; i++)
-        n->neigh[i]->diff = 0; //reset all children (including one on path)
+        if(n->neigh[i] != pathchild)    //reset other children
+        {
+          n->neigh[i]->diff = 0;
+          //fprintf(stderr, "exclude remove: ");
+          //print_node(leaf);
+          //fprintf(stderr, "from: ");
+          //print_node(n->neigh[i]);
+          clearLA(n->neigh[i]->include);
+        }
 
       if(n->depth == 0)        //the root
       {
@@ -310,6 +320,7 @@ void reset_leaf(Node *leaf)
       }
     }
     n = n->neigh[0];
+    pathchild = n;
   }
 }
 

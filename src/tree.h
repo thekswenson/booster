@@ -44,18 +44,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define MAX_NAMELENGTH		255	/* max length of a taxon name */
 #define MAX_COMMENTLENGTH	255	/* max length of a comment string in NHX format */
 
+#define INCLUDE_EXCLUDE_SIZE 256 //The default size of the include/exlude arrrays.
+
 /* TYPES */
 typedef struct __LeafArray LeafArray;
 typedef struct __Path Path;
 
-/* Every node in our binary trees has several neighbours with indices  0, 1, 2.... We allow polytomies of any degree.
+/* Every node in our binary trees have several neighbours with indices  0, 1, 2.... We allow polytomies of any degree.
    An internal node with no multifurcation has 3 outgoing directions/neighbours.
 
    In rooted trees, the interpretation is the following:
    - for internal nodes, direction 0 is to the father, other directions are to the sons
    - for tips (leaves), direction 0 is to the father, no other neighbours
    - the root has only two neighbours.
-   So it's easy to check whether a node is a leaf (one neighbour) or the root of a rooted tree (two neighbours).
+   So it's easy to check whether a node is a leaf (one neighbour) or the root
+   of a rooted tree (two neighbours).
 
    For unrooted trees, the interpretation is the same, except that no node has two neighbours.
    The pseudo-root (from the NH import) is three-furcated, so behaves exactly like any other internal node.
@@ -69,15 +72,15 @@ typedef struct __Node Node;
 typedef struct __Node {
 	char* name;       /* Only set if this is a leaf node. */
 	char* comment;		/* for further use: store any comment (e.g. from NHX format) */
-	int id;			      /* unique id attributed to the node (index of node into a_nodes array*/
-	short int nneigh;	/* number of neighbours */
+	int id;			         /* unique id attributed to the node (index of node into a_nodes array*/
+	short int nneigh;	      /* number of neighbours */
 	short int nneigh_space; /* Currently allocated neighbors */
 	struct __Node** neigh;	/* neighbour nodes */
-	struct __Edge** br;	/* corresponding branches going from this node */
+	struct __Edge** br;	   /* corresponding branches going from this node */
 	double mheight;	/* the height of a node is its min distance to a leaf */
   
         // Variables used for rapid transfer index calculation on alt_tree:
-        // (only in absence of heavypath decomposition and the alt_tree)
+        // (used only in absence of heavypath decomposition in the alt_tree)
   int subtreesize; // Number of leaves in subtree rooted at this node (assume rooted)
   int depth;       // The depth of the node (from the root)
   int d_lazy;      // The lazily updated transfer distance
@@ -85,6 +88,9 @@ typedef struct __Node {
                    // (Pv is the path from v to the root)
   int d_min;       // Minimum TI found in this subtree
   int d_max;       // Maximum TI found in this subtree (used for unrooted TI)
+  LeafArray* include; // Include these leaves in the transfer set for the subtree
+  LeafArray* exclude; // Exclude these leaves from the transfer set for this node
+  bool exclude_this;  // Used for leaf nodes when calculating the transfer set
 
         // Variables used for rapid transfer index calculation on the heavypath
         // decomposition for alt_tree:
@@ -95,6 +101,8 @@ typedef struct __Node {
         // Variables used for rapid transfer index calculation on ref_tree:
   int ti_min;       // The (rooted) transfer index for this node.
   int ti_max;       // The (rooted) maximum transfer distance for this node.
+  Node* min_node;   // alt_tree node with minimum transfer distance to this one.
+  Node* max_node;   // alt_tree node with maximum transfer distance to this one.
   LeafArray* lightleaves;   // The leaves in the light children.
   Node* heavychild; // The heaviest child
   Node* other;      // Corresponding leaf in another tree (see set_leaf_bijection())
@@ -133,15 +141,18 @@ typedef struct __Tree {
 	int nb_nodes;
 	int nb_edges;
 	int nb_taxa;
-  	int nb_taxa_space; // Space currently allocated for taxa
+  	int nb_taxa_space;  // Space currently allocated for taxa
   	int nb_edges_space; // Space currently allocated for edges
   	int nb_nodes_space; // Space currently allocated for nodes
   
 	char** taxa_names; /* store only once the taxa names */
 	char** taxname_lookup_table;   // maps taxa id [0,nb_taxa-1] to name
 
+
          // Variables used for rapid transfer index calculation:
-	LeafArray* leaves;	           // array of Node pointers sorted by name
+	LeafArray* leaves;       // Array of Node pointers sorted by name
+   //bool* exclude_vector;    // Array used to mark leaf ids not in transfer set
+   LeafArray* transfer_set; // The transfer set for the node with the min transfer index
 } Tree;
 	
 
@@ -289,6 +300,8 @@ void post_order_traversal_data(Tree* t, void*, void (*func)(Node*, Node*, Edge*,
 
 void pre_order_traversal_recur(Node* current, Node* origin, Edge *e, Tree* tree, void (*func)(Node*, Node*, Edge*, Tree*));
 void pre_order_traversal(Tree* t, void (*func)(Node*, Node*, Edge*, Tree*));
+/* pre order traversal starting at the given node */
+void pre_order_traversal_subtree(Tree* t, Node* startnode, void (*func)(Node*, Node*, Edge*, Tree*));
 
 /* pre order traversal with any data passed to the function call */
 void pre_order_traversal_data_recur(Node* current, Node* origin, Edge *e, Tree* tree, void* data, void (*func)(Node*, Node*, Edge*, Tree*, void*));
@@ -360,6 +373,7 @@ void free_tree(Tree* tree);
 /* LeafArray - - - - - - */
 /*
 An array of Node* along with its length.
+Double the size of the array dynamically.
 */
 typedef struct __LeafArray {
   Node** a;      //The array of node pointers
@@ -371,9 +385,21 @@ typedef struct __LeafArray {
 */
 LeafArray* allocateLA(int n);
 
+/* Return a copy of the given LeafArray.
+*/
+LeafArray* copyLA(LeafArray *la);
+
 /* Add a leaf to the leaf array.
 */
 void addLeafLA(LeafArray *la, Node *u);
+
+/* Remove the last leaf from the array.
+*/
+void removeLeafLA(LeafArray *la);
+
+/* Clear the array.
+*/
+void clearLA(LeafArray *la);
 
 /* Free the array in the LeafArray.
 */
@@ -501,6 +527,51 @@ Returns NULL if there is not another sibling (the root is not a pseudo-root).
 */
 Node* get_other_sibling(Node *n, Node *sib);
 
+/* Return the node of alt_tree that has the current minimum transfer distance.
+*/
+Node* get_min_node(Tree* t);
+
+/* Return the node of alt_tree that has the current maximum transfer distance.
+*/
+Node* get_max_node(Tree* t);
+
+/* Return the Node that has the minimum transfer distance, if min is true.
+Otherwise return the Node with the max. Work our way from the root to a leaf
+and stop if we are at a root or all subtrees are not as good.
+*/
+Node* get_x_node(Tree* t, bool min);
+
+/* Return the transfer set for the node. 
+
+@note  user responsible for the memory
+*/
+LeafArray* get_transfer_set(Tree* t);
+
+/* Return the transfer set for the given node.
+*/
+LeafArray* get_transfer_set_for_node(Tree* t, Node* n);
+
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the n->exclude array.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_transferset_from_subtree(Tree* t, Node* n);
+
+/* Descend until the node with the best transfer index, adding the included
+leaves to the given LeafArray.
+*/
+Node* collect_included(Node* n, LeafArray* includearray);
+
+/* Add all leaves from the subtree to the transfer_set, except those with the
+id marked true in the exclude_vector.
+*/
+void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree);
+
+/* Return the transfer distance of the node. If min is true, then get the
+value d_min + Sum_{n \in Pv} diff_n. Otherwise use d_max.
+*/
+int transfer_distance(Node* n, bool min);
 
 /* Return the minimum of two integers.
 */

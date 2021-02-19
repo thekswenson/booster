@@ -258,6 +258,11 @@ Node* new_node(const char* name, Tree* t, int degree) {
 		t->nb_nodes_space *= 2;
 		t->a_nodes = realloc(t->a_nodes, t->nb_nodes_space*sizeof(Node*));
 	}
+	nn->include = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	nn->exclude = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	nn->exclude_this = false;
+	nn->ti_max = 0;
+	nn->ti_min = INT_MAX;
 	t->a_nodes[nn->id] = nn; /* warning: not checking anything here! This array haas to be big enough from start */
 	t->nb_nodes++;
 	return nn;
@@ -298,7 +303,7 @@ Tree* new_tree(const char* name) {
 
 	t->node0 = newNode(t);	/* this first node _is_ a leaf */
 	t->node0->name=strdup(name);
-	addTip(t,strdup(name));
+	addTip(t, strdup(name));
 
 	t->taxname_lookup_table = NULL;
 	return t;
@@ -331,10 +336,6 @@ Tree* copy_tree_rapidTI(Tree* oldt) {
 
     //Copy all the nodes (and structure) of the tree:
   copy_tree_rapidTI_rec(newt, oldt->node0, newt->node0);
-
-  //for(int i=0; i < newt->nb_nodes; i++)
-  //  fprintf(stderr, "node: %p\n", (void*)newt->a_nodes[i]);
-  //  //print_node(newt->a_nodes[i]);
 
   newt->leaves = allocateLA(oldt->leaves->n);
   for(int i=0; i < oldt->leaves->i; i++)
@@ -437,10 +438,14 @@ Node* copy_node_rapidTI(Node* old) {
   new->d_max = old->d_max;
   new->ti_min = old->ti_min;
   new->ti_max = old->ti_max;
-  new->lightleaves = NULL;     //Fill once leaves exist
-  new->heavychild = NULL;      //Set this in copy_tree_rapidTI_rec
-  new->other = NULL;           //To be set with set_leaf_bijection()
 
+  new->lightleaves = NULL;     //Fill once leaves exist:
+	new->include = NULL;
+	new->exclude = NULL;
+  new->heavychild = NULL;      //Set this in copy_tree_rapidTI_rec
+  new->other = NULL;           //To be set with set_leaf_bijection(), which is
+                               //the first thing called by
+                               //compute_transfer_indicies____().
   return new;
 }
 
@@ -1273,6 +1278,12 @@ Node* newNode(Tree *t){
 
 	node->mheight = MAX_MHEIGHT;
 
+	node->include = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	node->exclude = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	node->exclude_this = false;
+	node->ti_max = 0;
+	node->ti_min = INT_MAX;
+
 	return node;
 }
 
@@ -1648,6 +1659,13 @@ void pre_order_traversal_recur(Node* current, Node* origin, Edge *e, Tree* tree,
 
 void pre_order_traversal(Tree* t, void (*func)(Node*, Node*, Edge*, Tree*)) {
 	pre_order_traversal_recur(t->node0, NULL, NULL, t, func);
+}
+
+void pre_order_traversal_subtree(Tree* t, Node* startnode, void (*func)(Node*, Node*, Edge*, Tree*)) {
+	Node* origin = startnode->neigh[0];
+	if(startnode == t->node0)
+		origin = NULL;
+	pre_order_traversal_recur(startnode, origin, NULL, t, func);
 }
 
 /* Pre order traversal with any data that can be passed to the recur function */
@@ -2030,6 +2048,8 @@ void free_node(Node* node) {
 	if (node->name) free(node->name);
 	if (node->comment) free(node->comment);
   if (node->lightleaves) freeLA(node->lightleaves);
+  if (node->include) freeLA(node->include);
+  if (node->exclude) freeLA(node->exclude);
 
 	free(node->neigh);
 	free(node->br);
@@ -2072,22 +2092,50 @@ LeafArray* allocateLA(int n) {
   return la;
 }
 
+/* Return a copy of the given LeafArray.
+*/
+LeafArray* copyLA(LeafArray *la) {
+	LeafArray *newla = allocateLA(la->n);
+	newla->i = la->i;
+	for(int i=0; i < la->i; i++)
+		newla->a[i] = la->a[i];
+
+	return newla;
+}
 
 /*
 Add a leaf to the leaf array.
 */
 void addLeafLA(LeafArray* la, Node* u) {
-  if(la->n == la->i)
-  {
-    fprintf(stderr, "Fatal error: adding too many nodes to LeafArray (%d / %d).\n",la->n, la->i);
-    Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+  if(la->n == la->i) {		//Double the size if necessary:
+    la->n = la->n*2;
+    la->a = realloc(la->a, la->n*sizeof(Node*));
   }
 
   la->a[(la->i)++] = u;
 }
 
+/* Remove a leaf from the array.
+*/
+void removeLeafLA(LeafArray *la) {
+	if(la->i)
+		la->i--;
+	else
+	{
+    fprintf(stderr, "Fatal error: removeLeafLA called on empty LeafArray (%d).\n",la->n);
+    Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+	}
+}
+
 /*
-Free the array in the  LeafArray.
+Clear the array.
+*/
+void clearLA(LeafArray *la) {
+	la->i = 0;
+}
+
+/*
+Free the array in the LeafArray.
 */
 void freeLA(LeafArray *la) {
   if(la->a != NULL) free(la->a);
@@ -2127,6 +2175,14 @@ LeafArray* concatinateLA(LeafArray *la1, LeafArray *la2, bool freemem) {
     freeLA(la2);
   }
   return newla;
+}
+
+/* Append the elemnts of la2 to la1.
+*/
+void appendLA(LeafArray *la1, LeafArray *la2)
+{
+	for(int i=0; i < la2->i; i++)
+		addLeafLA(la1, la2->a[i]);
 }
 
 
@@ -2335,7 +2391,7 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Edge *e, Tree* t) {
   if(target->nneigh == 1)           //leaf
   {
     e->topo_depth = target->subtreesize = 1;
-	e->transfer_index = -1;
+		e->transfer_index = -1;
     addLeafLA(t->leaves, target);
   }
   else                              //internal node
@@ -2343,17 +2399,16 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Edge *e, Tree* t) {
     target->subtreesize = 0;
 
     for(int i=0; i < target->nneigh; i++){
-		if(target->neigh[i]!=orig){
-	      target->subtreesize += target->neigh[i]->subtreesize;
+			if(target->neigh[i]!=orig){
+				target->subtreesize += target->neigh[i]->subtreesize;
+			}
 		}
-	}
 
     if(target != t->node0)          //set topo_depth for edges above nodes
-	{
-      e->topo_depth = min(target->subtreesize,
-	  						t->nb_taxa - target->subtreesize);
-	  e->transfer_index = -1;
-	}
+		{
+ 			e->topo_depth = min(target->subtreesize, t->nb_taxa - target->subtreesize);
+			e->transfer_index = -1;
+		}
   }
   
     // Set the rest:
@@ -2471,6 +2526,181 @@ Node* get_other_sibling(Node *n, Node *sib) {
   if(parent->neigh[1] != n && parent->neigh[1] != sib)
     return parent->neigh[1];
   return parent->neigh[2];
+}
+
+/* Return the node of alt_tree that has the current minimum transfer distance.
+*/
+Node* get_min_node(Tree* t)
+{
+	return get_x_node(t, true);
+}
+
+/* Return the node of alt_tree that has the current maximum transfer distance.
+*/
+Node* get_max_node(Tree* t)
+{
+	return get_x_node(t, false);
+}
+
+
+/* Return the Node that has the minimum transfer distance, if min is true.
+Otherwise return the Node with the max. Work our way from the root to a leaf
+and stop if we are at a root or all subtrees are not as good.
+*/
+Node* get_x_node(Tree* t, bool min)
+{
+	Node* goodchild;
+	Node* n = t->node0;
+	int start = 0;
+	while(true)
+	{
+		if(n->nneigh == 1)    //a leaf
+		  return n;
+
+		goodchild = NULL;
+		for(int i = start; i < n->nneigh; i++)
+		{
+			if(min)
+			{
+			  if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
+				  goodchild = n->neigh[i];
+			}
+		  else
+			{
+			  if(n->neigh[i]->d_max + n->neigh[i]->diff == n->d_max)
+				  goodchild = n->neigh[i];
+			}
+		}
+
+		if(!goodchild)        //this node is better than children
+			return n;
+
+		n = goodchild;
+		start = 1;
+	}
+}
+
+/* Return the transfer set for the node of the given alt_tree with the minimum
+transfer distance.
+
+@note  user responsible for the memory
+
+Descend from the root to a child as long as the best value in the child's
+subtree is equal to the best of the whole tree. On the way down, add the
+included leaves. Once to the bottom, mark the excluded leaves for that node.
+Visit all of the leaves in the subtree keeping only those that are not maked
+to be excluded.
+*/
+LeafArray* get_transfer_set(Tree* t)
+{
+	Node* n = t->node0;
+		//Find the node with minimum transfer distance, and add the included:
+	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	n = collect_included(n, t->transfer_set);
+
+		//Include all leaves in the subtree except those excluded.
+	add_transferset_from_subtree(t, n);
+
+	return t->transfer_set;
+}
+
+/* Return the transfer set for the given node.
+*/
+LeafArray* get_transfer_set_for_node(Tree* t, Node* n)
+{
+	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
+
+		//Include all leaves in the subtree except those excluded.
+	add_transferset_from_subtree(t, n);
+
+		//Include all leaves included on the path to the root.
+	Node *node = n;
+	while(node->depth)
+	{
+		appendLA(t->transfer_set, node->include);
+		node = node->neigh[0];
+	}
+	appendLA(t->transfer_set, node->include);
+
+	return t->transfer_set;
+}
+
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the n->exclude array.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_transferset_from_subtree(Tree* t, Node* n)
+{
+		//Mark excluded leaves.
+  for(int i=0; i < n->exclude->i; i++)
+		n->exclude->a[i]->exclude_this = true;
+
+		//Include all leaves in the subtree except those excluded.
+  pre_order_traversal_subtree(t, n, &include_subtree);
+
+		//Unmark the excluded leaves.
+  for(int i=0; i < n->exclude->i; i++)
+		n->exclude->a[i]->exclude_this = false;
+}
+
+/* Descend until the node with the best transfer index, adding the included
+leaves to the given LeafArray.
+*/
+Node* collect_included(Node* n, LeafArray* includearray)
+{
+	Node* goodchild;
+	int start = 0;
+	while(true)
+	{
+		appendLA(includearray, n->include);
+
+		if(n->nneigh == 1)    //a leaf
+		  return n;
+
+		goodchild = NULL;
+		for(int i = start; i < n->nneigh; i++)
+		{
+			if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
+				goodchild = n->neigh[i];
+		}
+
+		if(!goodchild)        //this node is better than children
+			return n;
+
+		n = goodchild;
+		start = 1;
+	}
+}
+
+
+/* Add all leaves from the subtree to the transfer_set, except those with the
+id marked true in the exclude_vector.
+*/
+void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree)
+{
+	if(current->nneigh == 1)										//for a leaf
+		if(!current->exclude_this)								//that shouldn't be excluded
+			addLeafLA(tree->transfer_set, current);
+}
+
+/* Return the transfer distance of the node. If min is true, then get the
+value d_min + Sum_{n \in Pv} diff_n. Otherwise use d_max.
+*/
+int transfer_distance(Node* n, bool min)
+{
+	int total = n->d_max;
+	if(min)
+	  total = n->d_min;
+
+	int depth = n->depth;
+  for(int i=0; i <= depth; i++)
+	{
+		total += n->diff;
+		n = n->neigh[0];
+	}
+
+	return total;
 }
 
 /* Return the minimum of two integers.

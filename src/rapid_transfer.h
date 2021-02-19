@@ -7,7 +7,7 @@
 
 
 
-/* Compute the Transfer Index comparing a reference tree to an alternative
+/* Compute the Transfer Index comparing a reference tree to an alternate
 (bootstrap) tree.
 
 This is the faster version that is based on assigning an index by traversing
@@ -28,15 +28,15 @@ void compute_transfer_indices_fast(Tree *ref_tree, const int n,
                                    int *transfer_index);
 
 /* Compute the Transfer Index (TI) for all edges, comparing a reference tree to
-an alternative balanced (bootstrap) tree.  This does not do a heavypath
+an alternate balanced (bootstrap) tree.  This does not do a heavypath
 decomposition of the aslternative tree.
 
 This is the faster version that is based on assigning an index by traversing
 the ref_tree.
 We compute the rooted TI using the rooted Transfer Distance (TD). The rooted
-TD between node u in ref_tree and node v in alt_tree is the size of symmetric
-difference L(u)-L(v) U L(v)-L(u) (where L(u) is the leaf set in the subtree
-rooted at u).
+TD between node u in ref_tree and node v in alt_tree is the size of the
+symmetric difference L(u)-L(v) U L(v)-L(u) (where L(u) is the leaf set in the
+subtree rooted at u).
 
 We start by computing the TI for a leaf u. Then the TI is computed for parent
 u', as long as u is the "heavy" child of u'. This is repeated, starting at

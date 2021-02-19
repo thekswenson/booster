@@ -1,11 +1,11 @@
 #ifndef __HEAVY_PATHS_H__
 #define __HEAVY_PATHS_H__
 /*
-  This is the code that uses heavy paths to help when the alternative tree is
-  not balanced. We use bookkeeping, instead of a balanced datastructure, to
-  maintain the minimum transfer distance over the whole tree.
-  This will shave a logarithmic factor off of the running time when
-  traveling up the alternate tree from leaf to root.
+  This is the code that uses heavy paths to help when the alternate tree
+  (T_o in the paper) is not balanced. We use bookkeeping, instead of a
+  balanced datastructure, to maintain the minimum transfer distance over the
+  whole tree. This shaves a logarithmic factor off of the running time
+  when traveling up the alternate tree from leaf to root.
  
   In the alternate tree, a heavy path is split into a tree ("Path Tree" or
   PT) where each node of the tree represents a subpath of the heavypath. Each
@@ -45,12 +45,12 @@ typedef struct __Node Node;
   current heavypath, pointed to by node, and the pendant heavypath is pointed
   to by child_heavypath.
 
-  The entire group of PTs that are glued together by child_heavypath pointers
+  The entire group of PTs, that are glued together by child_heavypath pointers,
   is called the HeavyPathTree (HPT).
 
   If the PT leaf is also a leaf of alt_tree, then n->node and
   n->child_heavypaths are NULL and the path_to_root is an array of Path objects
-  that reprent the path in the HPT from the leaf to the root of the HPT.
+  that represent the path in the HPT from the leaf to the root of the HPT.
 */
 typedef struct __Path Path;
 typedef struct __Path {
@@ -63,7 +63,7 @@ typedef struct __Path {
   Path* sibling;
 
   Node* node;               //The node of alt_tree corresponding to this Path.
-                            //(this applies only to leaves of the PT)
+                            // (this applies only to leaves of the PT)
 
   Path** child_heavypaths;  //The array of Path trees pendant to this Path.
   int num_child_paths;      //The size of the child_heavypaths array.
@@ -92,7 +92,7 @@ Allocate a new Path, setting all the default values.
 */
 Path* new_Path();
 
-/* Recursiveley decompose the alternative tree into heavy paths according to
+/* Recursiveley decompose the alternate tree into heavy paths according to
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
 
