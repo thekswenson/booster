@@ -256,6 +256,7 @@ void add_leaf(Node *leaf)
     DB_TRACE(0, "current: "); DB_CALL(0, print_node(path[i]));
     DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[i]));
     path[i]->d_lazy += path[i]->diff - 1;
+    addLeafLA(path[i]->exclude, leaf);
     path[i-1]->diff += path[i]->diff;               //Push difference down
 
     int startindex = 1;                             //Not the root
@@ -264,7 +265,10 @@ void add_leaf(Node *leaf)
 
     for(int j = startindex; j < path[i]->nneigh; j++)
       if(path[i]->neigh[j] != path[i-1])
+      {
         path[i]->neigh[j]->diff += path[i]->diff+1; //The node off the path
+        addLeafLA(path[i]->neigh[j]->include, leaf);
+      }
 
     path[i]->diff = 0;
     DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[i]));
@@ -273,6 +277,7 @@ void add_leaf(Node *leaf)
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
   leaf->d_lazy += leaf->diff - 1;
   leaf->diff = 0;
+  addLeafLA(leaf->exclude, leaf);
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
 
     //Follow the path back up to the root, updating the d_min and d_max values
@@ -316,6 +321,7 @@ void reset_leaf(Node *leaf)
       if(n->depth == 0)        //the root
       {
         n->neigh[0]->diff = 0; //reset the first child
+        clearLA(n->neigh[0]->include);
         return;
       }
     }

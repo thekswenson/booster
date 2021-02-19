@@ -73,6 +73,8 @@ typedef struct __Node {
 	char* name;       /* Only set if this is a leaf node. */
 	char* comment;		/* for further use: store any comment (e.g. from NHX format) */
 	int id;			         /* unique id attributed to the node (index of node into a_nodes array*/
+                           // Debugging Hint: ids are assigned according to to a pre-order traversal
+                           // where the leaves are arranged in the order they come in the input file.
 	short int nneigh;	      /* number of neighbours */
 	short int nneigh_space; /* Currently allocated neighbors */
 	struct __Node** neigh;	/* neighbour nodes */
@@ -547,9 +549,26 @@ Node* get_x_node(Tree* t, bool min);
 */
 LeafArray* get_transfer_set(Tree* t);
 
-/* Return the transfer set for the given node.
+/* Return the transfer index on the tree.
 */
-LeafArray* get_transfer_set_for_node(Tree* t, Node* n);
+bool transfer_index(Tree* t);
+
+/* Return true if the min value represents the transfer index for the given
+tree, rather than the max value.
+*/
+bool transfer_index_is_min(Tree* t);
+
+/* Return the transfer set for the given node. If invert is true, then
+complement the leaf set (this gives the transfer set for the max score on the
+node).
+*/
+LeafArray* get_transfer_set_for_node(Tree* t, Node* n, bool complement);
+
+/* Return the complement the transfer_set.
+
+@note  user responsible for the memory
+*/
+void complement_tset(Tree* t);
 
 /* Add to n->transfer_set all of those leaves in the subtree that are not
 in the n->exclude array.
@@ -559,9 +578,10 @@ in the n->exclude array.
 void add_transferset_from_subtree(Tree* t, Node* n);
 
 /* Descend until the node with the best transfer index, adding the included
-leaves to the given LeafArray.
+leaves to the given LeafArray. If usemax is true, then descend using the d_max
+value instead of the d_min value.
 */
-Node* collect_included(Node* n, LeafArray* includearray);
+Node* collect_included(Node* n, LeafArray* includearray, bool usemax);
 
 /* Add all leaves from the subtree to the transfer_set, except those with the
 id marked true in the exclude_vector.
@@ -571,7 +591,7 @@ void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree);
 /* Return the transfer distance of the node. If min is true, then get the
 value d_min + Sum_{n \in Pv} diff_n. Otherwise use d_max.
 */
-int transfer_distance(Node* n, bool min);
+int transfer_distance(Tree*t, Node* n);
 
 /* Return the minimum of two integers.
 */

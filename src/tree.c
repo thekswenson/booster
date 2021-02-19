@@ -2594,19 +2594,46 @@ to be excluded.
 LeafArray* get_transfer_set(Tree* t)
 {
 	Node* n = t->node0;
+	bool usemax = (t->nb_taxa - t->node0->d_max) < t->node0->d_min;
+
 		//Find the node with minimum transfer distance, and add the included:
 	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
-	n = collect_included(n, t->transfer_set);
+	n = collect_included(n, t->transfer_set, usemax);
 
 		//Include all leaves in the subtree except those excluded.
 	add_transferset_from_subtree(t, n);
 
+	if(usemax)  //Complement the set if necessary.
+	{
+		fprintf(stderr, "complement...\n");
+		printLA(t->transfer_set);
+	  complement_tset(t);
+		printLA(t->transfer_set);
+	}
+
 	return t->transfer_set;
 }
 
-/* Return the transfer set for the given node.
+/* Return the transfer index on the tree.
 */
-LeafArray* get_transfer_set_for_node(Tree* t, Node* n)
+bool transfer_index(Tree* t)
+{
+	return min(t->node0->d_min, t->nb_taxa - t->node0->d_max);
+}
+
+/* Return true if the min value represents the transfer index for the given
+ref_tree Node, rather than the max value.
+*/
+bool transfer_index_is_min(Tree* t)
+{
+	return t->node0->d_min < t->nb_taxa - t->node0->d_max;
+}
+
+/* Return the transfer set for the given node. If invert is true, then
+complement the leaf set (this gives the transfer set for the max score on the
+node).
+*/
+LeafArray* get_transfer_set_for_node(Tree* t, Node* n, bool complement)
 {
 	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
 
@@ -2622,7 +2649,32 @@ LeafArray* get_transfer_set_for_node(Tree* t, Node* n)
 	}
 	appendLA(t->transfer_set, node->include);
 
+	if(complement)		//Complement the set:
+		complement_tset(t);
+
 	return t->transfer_set;
+}
+
+/* Return the complement the transfer_set.
+
+@note  user responsible for the memory
+*/
+void complement_tset(Tree* t)
+{
+	for(int i=0; i < t->transfer_set->i; i++)
+		t->transfer_set->a[i]->exclude_this = true;
+
+	LeafArray* tset = allocateLA(t->nb_taxa - t->transfer_set->i);
+	for(int i=0; i < t->nb_taxa; i++)
+	{
+		if(t->leaves->a[i]->exclude_this)
+			t->leaves->a[i]->exclude_this = false;
+		else
+			addLeafLA(tset, t->leaves->a[i]);
+	}
+	freeLA(t->transfer_set);
+
+	t->transfer_set = tset;
 }
 
 /* Add to n->transfer_set all of those leaves in the subtree that are not
@@ -2645,9 +2697,10 @@ void add_transferset_from_subtree(Tree* t, Node* n)
 }
 
 /* Descend until the node with the best transfer index, adding the included
-leaves to the given LeafArray.
+leaves to the given LeafArray. If usemax is true, then descend using the d_max
+value instead of the d_min value.
 */
-Node* collect_included(Node* n, LeafArray* includearray)
+Node* collect_included(Node* n, LeafArray* includearray, bool usemax)
 {
 	Node* goodchild;
 	int start = 0;
@@ -2661,8 +2714,14 @@ Node* collect_included(Node* n, LeafArray* includearray)
 		goodchild = NULL;
 		for(int i = start; i < n->nneigh; i++)
 		{
-			if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
-				goodchild = n->neigh[i];
+			if(usemax)
+			{
+				if(n->neigh[i]->d_max + n->neigh[i]->diff == n->d_max)
+					goodchild = n->neigh[i];
+			}
+			else
+				if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
+					goodchild = n->neigh[i];
 		}
 
 		if(!goodchild)        //this node is better than children
@@ -2684,24 +2743,25 @@ void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree)
 			addLeafLA(tree->transfer_set, current);
 }
 
-/* Return the transfer distance of the node. If min is true, then get the
-value d_min + Sum_{n \in Pv} diff_n. Otherwise use d_max.
+/* Return the transfer distance for the node. To get this value we must sum the
+diff values to the root (e.g. d_min + Sum_{n \in Pv} diff_n).
 */
-int transfer_distance(Node* n, bool min)
+int transfer_distance(Tree* t, Node* n)
 {
-	int total = n->d_max;
-	if(min)
-	  total = n->d_min;
+	int totalmax = n->d_max;
+	int totalmin = n->d_min;
 
 	int depth = n->depth;
   for(int i=0; i <= depth; i++)
 	{
-		total += n->diff;
+		totalmax += n->diff;
+		totalmin += n->diff;
 		n = n->neigh[0];
 	}
 
-	return total;
+	return min(totalmin, t->nb_taxa - totalmax);
 }
+
 
 /* Return the minimum of two integers.
 */
