@@ -47,7 +47,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define INCLUDE_EXCLUDE_SIZE 256 //The default size of the include/exlude arrrays.
 
 /* TYPES */
-typedef struct __LeafArray LeafArray;
+typedef struct __NodeArray NodeArray;
 typedef struct __Path Path;
 
 /* Every node in our binary trees have several neighbours with indices  0, 1, 2.... We allow polytomies of any degree.
@@ -90,8 +90,8 @@ typedef struct __Node {
                    // (Pv is the path from v to the root)
   int d_min;       // Minimum TI found in this subtree
   int d_max;       // Maximum TI found in this subtree (used for unrooted TI)
-  LeafArray* include; // Include these leaves in the transfer set for the subtree
-  LeafArray* exclude; // Exclude these leaves from the transfer set for this node
+  NodeArray* include; // Include these leaves in the transfer set for the subtree
+  NodeArray* exclude; // Exclude these leaves from the transfer set for this node
   bool exclude_this;  // Used for leaf nodes when calculating the transfer set
 
         // Variables used for rapid transfer index calculation on the heavypath
@@ -105,7 +105,7 @@ typedef struct __Node {
   int ti_max;       // The (rooted) maximum transfer distance for this node.
   Node* min_node;   // alt_tree node with minimum transfer distance to this one.
   Node* max_node;   // alt_tree node with maximum transfer distance to this one.
-  LeafArray* lightleaves;   // The leaves in the light children.
+  NodeArray* lightleaves;   // The leaves in the light children.
   Node* heavychild; // The heaviest child
   Node* other;      // Corresponding leaf in another tree (see set_leaf_bijection())
 } Node;
@@ -152,9 +152,9 @@ typedef struct __Tree {
 
 
          // Variables used for rapid transfer index calculation:
-	LeafArray* leaves;       // Array of Node pointers sorted by name
+	NodeArray* leaves;       // Array of Node pointers sorted by name
    //bool* exclude_vector;    // Array used to mark leaf ids not in transfer set
-   LeafArray* transfer_set; // The transfer set for the node with the min transfer index
+   NodeArray* transfer_set; // The transfer set for the node with the min transfer index
 } Tree;
 	
 
@@ -372,55 +372,59 @@ void free_tree(Tree* tree);
 /* ____________________________________________________________ */
 /* Functions added for rapid computation of the Transfer Index. */
 
-/* LeafArray - - - - - - */
+/* NodeArray - - - - - - */
 /*
 An array of Node* along with its length.
 Double the size of the array dynamically.
 */
-typedef struct __LeafArray {
+typedef struct __NodeArray {
   Node** a;      //The array of node pointers
   int n;         //The length of the leaf array
   int i;         //The left-most unused index
-} LeafArray;
+} NodeArray;
 
-/* Allocate a LeafArray of this size.
+/* Allocate a NodeArray of this size.
 */
-LeafArray* allocateLA(int n);
+NodeArray* allocateNA(int n);
 
-/* Return a copy of the given LeafArray.
+/* Return a copy of the given NodeArray.
 */
-LeafArray* copyLA(LeafArray *la);
+NodeArray* copyNA(NodeArray *la);
 
 /* Add a leaf to the leaf array.
 */
-void addLeafLA(LeafArray *la, Node *u);
+void addNodeNA(NodeArray *la, Node *u);
 
 /* Remove the last leaf from the array.
 */
-void removeLeafLA(LeafArray *la);
+void removeNodeNA(NodeArray *la);
 
 /* Clear the array.
 */
-void clearLA(LeafArray *la);
+void clearNA(NodeArray *la);
 
-/* Free the array in the LeafArray.
+/* Free the array in the NodeArray.
 */
-void freeLA(LeafArray *la);
+void freeNA(NodeArray *la);
 
-/* Print the nodes in the LeafArray.
+/* Print the nodes in the NodeArray.
 */
-void printLA(LeafArray *la);
+void printNA(NodeArray *la);
 
 /* Sort by the taxa names.
 */
-void sortLA(LeafArray *la);
+void sortNA(NodeArray *la);
 
-/* Concatinate the given LeafArrays. Free the memory of la1 and la2 if freemem
+/* Concatinate the given NodeArray. Free the memory of la1 and la2 if freemem
 is true.
 
 @note  user responsible for memory.
 */
-LeafArray* concatinateLA(LeafArray *la1, LeafArray *la2, bool freemem);
+NodeArray* concatinateNA(NodeArray *la1, NodeArray *la2, bool freemem);
+
+/* Append the elemnts of la2 to la1.
+*/
+void appendNA(NodeArray *la1, NodeArray *la2);
 
 /* - - - - - - - - - - - - - */
 
@@ -441,11 +445,11 @@ Return all leaves coming from the light subtree of this node.
 
 @warning  user responsible for memory
 */
-LeafArray* get_leaves_in_light_subtree(Node *u);
+NodeArray* get_leaves_in_light_subtree(Node *u);
 
 /*
 Find the heaviest child of this node (set u->heavychild), set u->lightleaves
-to point to a LeafArray with all leaves not in the heavychild.
+to point to a NodeArray with all leaves not in the heavychild.
 
 @warning  user responsible for memory of u->lightleaves (use freeLA())
 */
@@ -456,12 +460,12 @@ void setup_heavy_light_subtrees(Node *u);
 
 @warning  user responsible for memory
 */
-LeafArray* get_leaves_in_subtree(Node *u);
+NodeArray* get_leaves_in_subtree(Node *u);
 
 
 /* Add a leave to the leafarray, otherwise recurse.
 */
-void add_leaves_in_subtree(Node *u, LeafArray *leafarray);
+void add_leaves_in_subtree(Node *u, NodeArray *leafarray);
 
 
 /* Return an array of indices to leaves in the node list.
@@ -518,9 +522,13 @@ int compare_nodes_bitarray(const void *l1, const void *l2);
 
 /* Return the sibling to this Node.
 
-@warning  assume the node is not the root
+@warning  assume the node is not the root and the tree is binary.
 */
 Node* get_sibling(Node* u);
+
+/* Return the siblings to this Node. Return NULL if n is the root.
+*/
+NodeArray* get_siblings(Node* n);
 
 /* Return the sibling to this Node that is not the given Node sib.
 Returns NULL if there is not another sibling (the root is not a pseudo-root).
@@ -547,41 +555,50 @@ Node* get_x_node(Tree* t, bool min);
 
 @note  user responsible for the memory
 */
-LeafArray* get_transfer_set(Tree* t);
+NodeArray* get_transfer_set(Tree* t);
 
 /* Return the transfer index on the tree.
 */
-bool transfer_index(Tree* t);
+int transfer_index(Tree* t);
 
 /* Return true if the min value represents the transfer index for the given
 tree, rather than the max value.
 */
 bool transfer_index_is_min(Tree* t);
 
-/* Return the transfer set for the given node. If invert is true, then
-complement the leaf set (this gives the transfer set for the max score on the
+/* Return the transfer set for the given node. If usemax is true, then
+get the leaf set corresponding to the max value.
 node).
+
+@note  you must free any memory associated to t->transfer_set before calling
+       this function
 */
-LeafArray* get_transfer_set_for_node(Tree* t, Node* n, bool complement);
+NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax);
 
 /* Return the complement the transfer_set.
 
 @note  user responsible for the memory
 */
-void complement_tset(Tree* t);
+NodeArray* get_complement_tset(Tree* t);
 
 /* Add to n->transfer_set all of those leaves in the subtree that are not
 in the n->exclude array.
 
 @note  allocateLA() must already have been called on n->transfer_set 
 */
-void add_transferset_from_subtree(Tree* t, Node* n);
+void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* la);
 
 /* Descend until the node with the best transfer index, adding the included
-leaves to the given LeafArray. If usemax is true, then descend using the d_max
-value instead of the d_min value.
+leaves to the given NodeArray.
 */
-Node* collect_included(Node* n, LeafArray* includearray, bool usemax);
+Node* collect_included(Node* n, NodeArray* includearray);
+
+/* Get the leaves from all of the subtrees ABOVE this node, while subtracting
+the leaves from the included array for that subtree (the leaves that should
+be include in this subtree transfer set (TS) should be excluded from the set
+above this node).
+*/
+Node* collect_included_above(Tree* t, Node* n, NodeArray* includearray);
 
 /* Add all leaves from the subtree to the transfer_set, except those with the
 id marked true in the exclude_vector.

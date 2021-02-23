@@ -163,7 +163,7 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
     }
     else
     {
-      DB_TRACE(0, "subtree - "); DB_CALL(0, printLA(u->lightleaves));
+      DB_TRACE(0, "subtree - "); DB_CALL(0, printNA(u->lightleaves));
       for(int i=0; i < u->lightleaves->i; i++)  //a subtree
       {
         if(use_HPT)                             //add_leaf on leaves in subtree
@@ -184,7 +184,6 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
     {
       u->ti_min = min(hpt_root->d_min_path, hpt_root->d_min_subtree);
       u->ti_max = max(hpt_root->d_max_path, hpt_root->d_max_subtree);
-      //fprintf(stderr, "u %i: %i\n", u->id, u->ti_min);
     }
     else
     {
@@ -256,7 +255,7 @@ void add_leaf(Node *leaf)
     DB_TRACE(0, "current: "); DB_CALL(0, print_node(path[i]));
     DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[i]));
     path[i]->d_lazy += path[i]->diff - 1;
-    addLeafLA(path[i]->exclude, leaf);
+    addNodeNA(path[i]->exclude, leaf);
     path[i-1]->diff += path[i]->diff;               //Push difference down
 
     int startindex = 1;                             //Not the root
@@ -264,10 +263,10 @@ void add_leaf(Node *leaf)
       startindex = 0;                               //The root
 
     for(int j = startindex; j < path[i]->nneigh; j++)
-      if(path[i]->neigh[j] != path[i-1])
+      if(path[i]->neigh[j] != path[i-1])            //A node off the path
       {
-        path[i]->neigh[j]->diff += path[i]->diff+1; //The node off the path
-        addLeafLA(path[i]->neigh[j]->include, leaf);
+        path[i]->neigh[j]->diff += path[i]->diff+1;
+        addNodeNA(path[i]->neigh[j]->include, leaf);
       }
 
     path[i]->diff = 0;
@@ -277,7 +276,7 @@ void add_leaf(Node *leaf)
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
   leaf->d_lazy += leaf->diff - 1;
   leaf->diff = 0;
-  addLeafLA(leaf->exclude, leaf);
+  addNodeNA(leaf->exclude, leaf);
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
 
     //Follow the path back up to the root, updating the d_min and d_max values
@@ -304,24 +303,20 @@ void reset_leaf(Node *leaf)
     n->d_max = n->subtreesize;
     n->d_min = 1;
     n->diff = 0;
-    clearLA(n->exclude);
+    clearNA(n->exclude);
     if(n->nneigh != 1)         //not the leaf
     {
       for(int i=1; i < n->nneigh; i++)
         if(n->neigh[i] != pathchild)    //reset other children
         {
           n->neigh[i]->diff = 0;
-          //fprintf(stderr, "exclude remove: ");
-          //print_node(leaf);
-          //fprintf(stderr, "from: ");
-          //print_node(n->neigh[i]);
-          clearLA(n->neigh[i]->include);
+          clearNA(n->neigh[i]->include);
         }
 
       if(n->depth == 0)        //the root
       {
         n->neigh[0]->diff = 0; //reset the first child
-        clearLA(n->neigh[0]->include);
+        clearNA(n->neigh[0]->include);
         return;
       }
     }

@@ -258,8 +258,8 @@ Node* new_node(const char* name, Tree* t, int degree) {
 		t->nb_nodes_space *= 2;
 		t->a_nodes = realloc(t->a_nodes, t->nb_nodes_space*sizeof(Node*));
 	}
-	nn->include = allocateLA(INCLUDE_EXCLUDE_SIZE);
-	nn->exclude = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	nn->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	nn->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
 	nn->exclude_this = false;
 	nn->ti_max = 0;
 	nn->ti_min = INT_MAX;
@@ -337,10 +337,10 @@ Tree* copy_tree_rapidTI(Tree* oldt) {
     //Copy all the nodes (and structure) of the tree:
   copy_tree_rapidTI_rec(newt, oldt->node0, newt->node0);
 
-  newt->leaves = allocateLA(oldt->leaves->n);
+  newt->leaves = allocateNA(oldt->leaves->n);
   for(int i=0; i < oldt->leaves->i; i++)
   {
-    addLeafLA(newt->leaves, newt->a_nodes[oldt->leaves->a[i]->id]);
+    addNodeNA(newt->leaves, newt->a_nodes[oldt->leaves->a[i]->id]);
     assert(newt->leaves->a[i]->id == oldt->leaves->a[i]->id &&
            newt->leaves->a[i]->nneigh == 1);
   }
@@ -378,16 +378,16 @@ void copy_tree_rapidTI_rec(Tree* newt, Node* oldn, Node* newn) {
     //Set lightleaves for newn:
   if(newn->nneigh == 1)    //A leaf
   {
-    newn->lightleaves = allocateLA(1);
+    newn->lightleaves = allocateNA(1);
     newn->heavychild = NULL;
-    addLeafLA(newn->lightleaves, newn);
+    addNodeNA(newn->lightleaves, newn);
   }
   else
   {
-    newn->lightleaves = allocateLA(0);
+    newn->lightleaves = allocateNA(0);
     for(int i = start; i < newn->nneigh; i++)
       if(newn->neigh[i] != newn->heavychild)
-        newn->lightleaves = concatinateLA(newn->lightleaves,
+        newn->lightleaves = concatinateNA(newn->lightleaves,
                                           get_leaves_in_subtree(newn->neigh[i]),
                                           true);
   }
@@ -1278,8 +1278,8 @@ Node* newNode(Tree *t){
 
 	node->mheight = MAX_MHEIGHT;
 
-	node->include = allocateLA(INCLUDE_EXCLUDE_SIZE);
-	node->exclude = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	node->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	node->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
 	node->exclude_this = false;
 	node->ti_max = 0;
 	node->ti_min = INT_MAX;
@@ -1492,7 +1492,7 @@ Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
                         bool skip_hashtables) {
 	/* trick: iff taxname_lookup_table is NULL, we set it according to the tree read, otherwise we use it as the reference taxname lookup table */
  	Tree* mytree = parse_nh_string(big_string);
-	mytree->leaves = allocateLA(mytree->nb_taxa);
+	mytree->leaves = allocateNA(mytree->nb_taxa);
 		
 	if(mytree == NULL) { 	fprintf(stderr,"Not a syntactically correct NH tree.\n"); return NULL; }
 
@@ -2047,9 +2047,9 @@ void free_node(Node* node) {
 	if (node == NULL) return;
 	if (node->name) free(node->name);
 	if (node->comment) free(node->comment);
-  if (node->lightleaves) freeLA(node->lightleaves);
-  if (node->include) freeLA(node->include);
-  if (node->exclude) freeLA(node->exclude);
+  if (node->lightleaves) freeNA(node->lightleaves);
+  if (node->include) freeNA(node->include);
+  if (node->exclude) freeNA(node->exclude);
 
 	free(node->neigh);
 	free(node->br);
@@ -2070,7 +2070,7 @@ void free_tree(Tree* tree) {
 		free(tree->taxa_names);
 	}
 
-	if(tree->leaves) freeLA(tree->leaves);
+	if(tree->leaves) freeNA(tree->leaves);
 	free(tree);
 }
 
@@ -2078,10 +2078,10 @@ void free_tree(Tree* tree) {
 /* Functions added for rapid computation of the Transfer Index. */
 
 /*
-Allocate a LeafArray of this size.
+Allocate a NodeArray of this size.
 */
-LeafArray* allocateLA(int n) {
-  LeafArray *la = malloc(sizeof(LeafArray));
+NodeArray* allocateNA(int n) {
+  NodeArray *la = malloc(sizeof(NodeArray));
   if(n)
     la->a = calloc(n, sizeof(Node*));
   else
@@ -2092,10 +2092,10 @@ LeafArray* allocateLA(int n) {
   return la;
 }
 
-/* Return a copy of the given LeafArray.
+/* Return a copy of the given NodeArray.
 */
-LeafArray* copyLA(LeafArray *la) {
-	LeafArray *newla = allocateLA(la->n);
+NodeArray* copyNA(NodeArray *la) {
+	NodeArray *newla = allocateNA(la->n);
 	newla->i = la->i;
 	for(int i=0; i < la->i; i++)
 		newla->a[i] = la->a[i];
@@ -2106,7 +2106,7 @@ LeafArray* copyLA(LeafArray *la) {
 /*
 Add a leaf to the leaf array.
 */
-void addLeafLA(LeafArray* la, Node* u) {
+void addNodeNA(NodeArray* la, Node* u) {
   if(la->n == la->i) {		//Double the size if necessary:
     la->n = la->n*2;
     la->a = realloc(la->a, la->n*sizeof(Node*));
@@ -2117,12 +2117,12 @@ void addLeafLA(LeafArray* la, Node* u) {
 
 /* Remove a leaf from the array.
 */
-void removeLeafLA(LeafArray *la) {
+void removeNodeNA(NodeArray *la) {
 	if(la->i)
 		la->i--;
 	else
 	{
-    fprintf(stderr, "Fatal error: removeLeafLA called on empty LeafArray (%d).\n",la->n);
+    fprintf(stderr, "Fatal error: removeLeafLA called on empty NodeArray (%d).\n",la->n);
     Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 	}
 }
@@ -2130,22 +2130,22 @@ void removeLeafLA(LeafArray *la) {
 /*
 Clear the array.
 */
-void clearLA(LeafArray *la) {
+void clearNA(NodeArray *la) {
 	la->i = 0;
 }
 
 /*
-Free the array in the LeafArray.
+Free the array in the NodeArray.
 */
-void freeLA(LeafArray *la) {
+void freeNA(NodeArray *la) {
   if(la->a != NULL) free(la->a);
   free(la);
 }
 
 /*
-Print the nodes in the LeafArray.
+Print the nodes in the NodeArray.
 */
-void printLA(LeafArray *la) {
+void printNA(NodeArray *la) {
   fprintf(stderr, "Leaf ");
   print_nodes(la->a, la->i);
 }
@@ -2153,36 +2153,36 @@ void printLA(LeafArray *la) {
 /*
 Sort by the taxa names.
 */
-void sortLA(LeafArray *la) {
+void sortNA(NodeArray *la) {
   qsort(la->a, la->i, sizeof(Node*), compare_nodes);
 }
 
-/* Concatinate the given LeafArrays. Free the memory of la1 and la2 if freemem
+/* Concatinate the given NodeArray. Free the memory of la1 and la2 if freemem
 is true.
 
 @note  user responsible for memory.
 */
-LeafArray* concatinateLA(LeafArray *la1, LeafArray *la2, bool freemem) {
-  LeafArray *newla = allocateLA(la1->i + la2->i);
+NodeArray* concatinateNA(NodeArray *la1, NodeArray *la2, bool freemem) {
+  NodeArray *newla = allocateNA(la1->i + la2->i);
   for(int i=0; i < la1->i; i++)
-    addLeafLA(newla, la1->a[i]);
+    addNodeNA(newla, la1->a[i]);
   for(int i=0; i < la2->i; i++)
-    addLeafLA(newla, la2->a[i]);
+    addNodeNA(newla, la2->a[i]);
 
   if(freemem)
   {
-    freeLA(la1);
-    freeLA(la2);
+    freeNA(la1);
+    freeNA(la2);
   }
   return newla;
 }
 
 /* Append the elemnts of la2 to la1.
 */
-void appendLA(LeafArray *la1, LeafArray *la2)
+void appendNA(NodeArray *la1, NodeArray *la2)
 {
 	for(int i=0; i < la2->i; i++)
-		addLeafLA(la1, la2->a[i]);
+		addNodeNA(la1, la2->a[i]);
 }
 
 
@@ -2191,7 +2191,7 @@ void appendLA(LeafArray *la1, LeafArray *la2)
 void prepare_rapid_TI(Tree* mytree) {
 	prepare_rapid_TI_pre(mytree);  //Node depths for rapid Transfer Index (TI).
 	prepare_rapid_TI_post(mytree); //Node variables for rapid Transfer Index (TI).
-	sortLA(mytree->leaves);
+	sortNA(mytree->leaves);
 }
 
 
@@ -2214,10 +2214,10 @@ more than 1 light subtree if it is a pseudo-root (3-fan).
 
 @warning  user responsible for memory (use freeLA())
 */
-LeafArray* get_leaves_in_light_subtree(Node *u)
+NodeArray* get_leaves_in_light_subtree(Node *u)
 {
   if(u->nneigh == 1)    //leaf
-    return allocateLA(0);
+    return allocateNA(0);
 
   if(u->depth == 0)     //root
   {
@@ -2232,7 +2232,7 @@ LeafArray* get_leaves_in_light_subtree(Node *u)
       lightchild = u->neigh[0];
       heavychild = u->neigh[1];
     }
-    LeafArray *lightleaves = get_leaves_in_subtree(lightchild);
+    NodeArray *lightleaves = get_leaves_in_subtree(lightchild);
 
     if(u->nneigh == 3)  //a pseudo-root (3-fan)
     {
@@ -2241,7 +2241,7 @@ LeafArray* get_leaves_in_light_subtree(Node *u)
       else
         lightchild = heavychild;
 
-      return concatinateLA(lightleaves, get_leaves_in_subtree(lightchild),
+      return concatinateNA(lightleaves, get_leaves_in_subtree(lightchild),
                            true);
     }
     else if(u->nneigh > 3)
@@ -2272,7 +2272,7 @@ LeafArray* get_leaves_in_light_subtree(Node *u)
 
 /*
 Find the heaviest child of this node (set u->heavychild), set u->lightleaves
-to point to a LeafArray with all leaves not in the heavychild.
+to point to a NodeArray with all leaves not in the heavychild.
 
 @warning  user responsible for memory of lightleaves (use freeLA())
 */
@@ -2281,7 +2281,7 @@ void setup_heavy_light_subtrees(Node *u)
   if(u->nneigh == 1)           //leaf
   {
     u->heavychild = NULL;
-    u->lightleaves = allocateLA(0);
+    u->lightleaves = allocateNA(0);
     return;
   }
 
@@ -2297,11 +2297,11 @@ void setup_heavy_light_subtrees(Node *u)
       u->heavychild = u->neigh[i];
     i++;
   }
-    //Concatinate LeafArrays from light children:
-  u->lightleaves = allocateLA(0);
+    //Concatinate NodeArray from light children:
+  u->lightleaves = allocateNA(0);
   for(int i = startind; i < u->nneigh; i++){
     if(u->neigh[i] != u->heavychild){
-      u->lightleaves = concatinateLA(u->lightleaves,
+      u->lightleaves = concatinateNA(u->lightleaves,
                                      get_leaves_in_subtree(u->neigh[i]),
                                      true);
     }
@@ -2314,9 +2314,9 @@ Return a list of Node pointers to the leaves of this subtree.
 
 @warning  user responsible for memory
 */
-LeafArray* get_leaves_in_subtree(Node *u)
+NodeArray* get_leaves_in_subtree(Node *u)
 {
-  LeafArray *leafarray = allocateLA(u->subtreesize);
+  NodeArray *leafarray = allocateNA(u->subtreesize);
   
   add_leaves_in_subtree(u, leafarray);
   return leafarray;
@@ -2325,11 +2325,11 @@ LeafArray* get_leaves_in_subtree(Node *u)
 /*
 Add a leave to the leafarray, otherwise recurse.
 */
-void add_leaves_in_subtree(Node *u, LeafArray *leafarray)
+void add_leaves_in_subtree(Node *u, NodeArray *leafarray)
 {
   if(u->nneigh == 1)  //leaf
   {
-    addLeafLA(leafarray, u);
+    addNodeNA(leafarray, u);
     return;
   }
   if(u->depth == 0)   //root
@@ -2392,7 +2392,7 @@ void prepare_rapid_TI_doer(Node* target, Node* orig, Edge *e, Tree* t) {
   {
     e->topo_depth = target->subtreesize = 1;
 		e->transfer_index = -1;
-    addLeafLA(t->leaves, target);
+    addNodeNA(t->leaves, target);
   }
   else                              //internal node
   {
@@ -2508,6 +2508,25 @@ Node* get_sibling(Node* u)
   return child1;
 }
 
+/* Return the siblings to this Node. Return NULL if n is the root.
+*/
+NodeArray* get_siblings(Node* n)
+{
+	if(n->depth)		//not the root
+	{
+		int start = n->neigh[0]->depth ? 1 : 0;
+		NodeArray *retlist = allocateNA(n->neigh[0]->nneigh - start - 1);
+		for(int i=start; i < n->neigh[0]->nneigh; i++)
+			if(n->neigh[0]->neigh[i] != n)
+				addNodeNA(retlist, n->neigh[0]->neigh[i]);
+
+		return retlist;
+	}
+
+	return NULL;
+}
+
+
 /* Return the sibling to this Node that is not the given Node sib.
 Returns NULL if there is not another sibling (the root is not a pseudo-root).
 
@@ -2591,24 +2610,30 @@ included leaves. Once to the bottom, mark the excluded leaves for that node.
 Visit all of the leaves in the subtree keeping only those that are not maked
 to be excluded.
 */
-LeafArray* get_transfer_set(Tree* t)
+NodeArray* get_transfer_set(Tree* t)
 {
 	Node* n = t->node0;
 	bool usemax = (t->nb_taxa - t->node0->d_max) < t->node0->d_min;
 
-		//Find the node with minimum transfer distance, and add the included:
-	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
-	n = collect_included(n, t->transfer_set, usemax);
-
-		//Include all leaves in the subtree except those excluded.
-	add_transferset_from_subtree(t, n);
-
-	if(usemax)  //Complement the set if necessary.
+	t->transfer_set = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	if(usemax)
 	{
-		fprintf(stderr, "complement...\n");
-		printLA(t->transfer_set);
-	  complement_tset(t);
-		printLA(t->transfer_set);
+			//Find the node with maximum transfer distance, and add leaves that
+			//should be included from the subtrees ABOVE the max node:
+		n = collect_included_above(t, n, t->transfer_set);
+
+			//The leaves that should be excluded from this subtree for the transfer
+			//set below this node, are the leaves that should be include in the
+			//transfer set for the leaves above this node.
+		appendNA(t->transfer_set, n->exclude);
+	}
+	else
+	{
+			//Find the node with minimum transfer distance, and add the included:
+		n = collect_included(n, t->transfer_set);
+
+			//Include all leaves in the subtree except those excluded.
+		add_transferset_from_subtree(t, n, n->exclude);
 	}
 
 	return t->transfer_set;
@@ -2616,7 +2641,7 @@ LeafArray* get_transfer_set(Tree* t)
 
 /* Return the transfer index on the tree.
 */
-bool transfer_index(Tree* t)
+int transfer_index(Tree* t)
 {
 	return min(t->node0->d_min, t->nb_taxa - t->node0->d_max);
 }
@@ -2626,31 +2651,51 @@ ref_tree Node, rather than the max value.
 */
 bool transfer_index_is_min(Tree* t)
 {
-	return t->node0->d_min < t->nb_taxa - t->node0->d_max;
+	return t->node0->d_min <= t->nb_taxa - t->node0->d_max;
 }
 
-/* Return the transfer set for the given node. If invert is true, then
-complement the leaf set (this gives the transfer set for the max score on the
+/* Return the transfer set for the given node. If usemax is true, then
+get the leaf set corresponding to the max value.
 node).
+
+@note  you must free any memory associated to t->transfer_set before calling
+       this function
 */
-LeafArray* get_transfer_set_for_node(Tree* t, Node* n, bool complement)
+NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax)
 {
-	t->transfer_set = allocateLA(INCLUDE_EXCLUDE_SIZE);
+	t->transfer_set = allocateNA(INCLUDE_EXCLUDE_SIZE);
 
-		//Include all leaves in the subtree except those excluded.
-	add_transferset_from_subtree(t, n);
-
-		//Include all leaves included on the path to the root.
-	Node *node = n;
-	while(node->depth)
+	if(usemax)
 	{
-		appendLA(t->transfer_set, node->include);
-		node = node->neigh[0];
-	}
-	appendLA(t->transfer_set, node->include);
+			//Include all leaves from subtrees hanging off the path to the root.
+		Node *node = n;
+		NodeArray *siblings = get_siblings(node);
+		while(siblings)			//the root has no siblings.
+		{
+			for(int i=0; i < siblings->i; i++)
+				add_transferset_from_subtree(t, siblings->a[i], node->include);
 
-	if(complement)		//Complement the set:
-		complement_tset(t);
+			freeNA(siblings);
+			node = node->neigh[0];
+			siblings = get_siblings(node);
+		}
+			//Include all the leaves from this subtree.
+		appendNA(t->transfer_set, n->exclude);
+	}
+	else
+	{
+			//Include all leaves in the subtree except those excluded.
+		add_transferset_from_subtree(t, n, n->exclude);
+
+			//Include all leaves included on the path to the root.
+		Node *node = n;
+		while(node->depth)
+		{
+			appendNA(t->transfer_set, node->include);
+			node = node->neigh[0];
+		}
+		appendNA(t->transfer_set, node->include);
+	}
 
 	return t->transfer_set;
 }
@@ -2659,22 +2704,21 @@ LeafArray* get_transfer_set_for_node(Tree* t, Node* n, bool complement)
 
 @note  user responsible for the memory
 */
-void complement_tset(Tree* t)
+NodeArray* get_complement_tset(Tree* t)
 {
 	for(int i=0; i < t->transfer_set->i; i++)
 		t->transfer_set->a[i]->exclude_this = true;
 
-	LeafArray* tset = allocateLA(t->nb_taxa - t->transfer_set->i);
+	NodeArray* tset = allocateNA(t->nb_taxa - t->transfer_set->i);
 	for(int i=0; i < t->nb_taxa; i++)
 	{
 		if(t->leaves->a[i]->exclude_this)
 			t->leaves->a[i]->exclude_this = false;
 		else
-			addLeafLA(tset, t->leaves->a[i]);
+			addNodeNA(tset, t->leaves->a[i]);
 	}
-	freeLA(t->transfer_set);
 
-	t->transfer_set = tset;
+	return tset;
 }
 
 /* Add to n->transfer_set all of those leaves in the subtree that are not
@@ -2682,50 +2726,75 @@ in the n->exclude array.
 
 @note  allocateLA() must already have been called on n->transfer_set 
 */
-void add_transferset_from_subtree(Tree* t, Node* n)
+void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* exclude)
 {
 		//Mark excluded leaves.
-  for(int i=0; i < n->exclude->i; i++)
-		n->exclude->a[i]->exclude_this = true;
+  for(int i=0; i < exclude->i; i++)
+		exclude->a[i]->exclude_this = true;
 
 		//Include all leaves in the subtree except those excluded.
   pre_order_traversal_subtree(t, n, &include_subtree);
 
 		//Unmark the excluded leaves.
-  for(int i=0; i < n->exclude->i; i++)
-		n->exclude->a[i]->exclude_this = false;
+  for(int i=0; i < exclude->i; i++)
+		exclude->a[i]->exclude_this = false;
 }
 
 /* Descend until the node with the best transfer index, adding the included
-leaves to the given LeafArray. If usemax is true, then descend using the d_max
-value instead of the d_min value.
+leaves to the given NodeArray.
 */
-Node* collect_included(Node* n, LeafArray* includearray, bool usemax)
+Node* collect_included(Node* n, NodeArray* includearray)
 {
 	Node* goodchild;
 	int start = 0;
 	while(true)
 	{
-		appendLA(includearray, n->include);
+		appendNA(includearray, n->include);
 
 		if(n->nneigh == 1)    //a leaf
 		  return n;
 
 		goodchild = NULL;
 		for(int i = start; i < n->nneigh; i++)
-		{
-			if(usemax)
-			{
-				if(n->neigh[i]->d_max + n->neigh[i]->diff == n->d_max)
-					goodchild = n->neigh[i];
-			}
-			else
-				if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
-					goodchild = n->neigh[i];
-		}
+			if(n->neigh[i]->d_min + n->neigh[i]->diff == n->d_min)
+				goodchild = n->neigh[i];
 
 		if(!goodchild)        //this node is better than children
 			return n;
+
+		n = goodchild;
+		start = 1;
+	}
+}
+
+/* Get the leaves from all of the subtrees ABOVE the max node, while subtracting
+the leaves from the included array for that subtree (the leaves that should
+be include in this subtree transfer set (TS) should be excluded from the set
+above this node). Return the max node.
+*/
+Node* collect_included_above(Tree* t, Node* n, NodeArray* includearray)
+{
+	Node* goodchild;
+	int start = 0;
+	while(true)							//Descend to the max node:
+	{
+		if(n->nneigh == 1)    //a leaf
+		  return n;
+
+		goodchild = NULL;			//find the right child to descend to:
+		for(int i = start; i < n->nneigh; i++)
+			if(n->neigh[i]->d_max + n->neigh[i]->diff == n->d_max)
+				goodchild = n->neigh[i];
+
+		if(!goodchild)        //current node is better than children
+			return n;
+
+			//The goodchild has an include set holding the leaves from its sibling's
+			//subtree that are included in the TS for the goodchild. These are the
+			//leaves that need to be excluded from the sibling's leaves.
+		for(int i = start; i < n->nneigh; i++)
+			if(n->neigh[i] != goodchild)
+				add_transferset_from_subtree(t, n->neigh[i], goodchild->include);
 
 		n = goodchild;
 		start = 1;
@@ -2740,7 +2809,7 @@ void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree)
 {
 	if(current->nneigh == 1)										//for a leaf
 		if(!current->exclude_this)								//that shouldn't be excluded
-			addLeafLA(tree->transfer_set, current);
+			addNodeNA(tree->transfer_set, current);
 }
 
 /* Return the transfer distance for the node. To get this value we must sum the

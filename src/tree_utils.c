@@ -76,7 +76,7 @@ Tree* gen_random_tree(Tree *tree){
   update_all_topo_depths_from_hashtables(my_tree);
   free(indices);
 
-  my_tree->leaves = allocateLA(my_tree->nb_taxa);
+  my_tree->leaves = allocateNA(my_tree->nb_taxa);
   
   prepare_rapid_TI(my_tree);
   return(my_tree);
@@ -139,7 +139,7 @@ Tree * gen_rand_tree(int nbr_taxa, char **taxa_names){
 
   /* topological depths of branches */
   update_all_topo_depths_from_hashtables(my_tree);
-  my_tree->leaves = allocateLA(my_tree->nb_taxa);
+  my_tree->leaves = allocateNA(my_tree->nb_taxa);
   prepare_rapid_TI(my_tree);
   return(my_tree);
 }
