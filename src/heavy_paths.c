@@ -35,22 +35,27 @@ Path* new_Path()
   newpath->d_max_path = 0;
   newpath->d_max_subtree = 1;
 
+  newpath->include_subtree = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  newpath->include_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  newpath->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  newpath->exclude_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
+
   return newpath;
 }
 
 
 /*
-Recursiveley decompose the alternative tree into heavy paths according to
+Recursively decompose the alternative tree into heavy paths according to
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
 
 @note   Each heavypath corresponds to a tree of Paths we call the PathTree (PT).
         Leaves of the PTs are glued to the roots of other PTs (using the
-        child_heavypath pointer).
+        child_heavypath pointers).
         We call the entire tree the HeavyPathTree (HPT)
 
 @note   Allocate a pointer to an array that will hold a path to the root for
-        a leaf in the HPT, for use whe calculating add_leaf_HPT(). Each leaf
+        a leaf in the HPT, for use when calculating add_leaf_HPT(). Each leaf
         of the HPT will have path_to_root_p set to this value, as well as
         the root of the HPT.
 */
@@ -98,6 +103,11 @@ void free_HPT(Path* root)
 }
 void free_HPT_rec(Path* node)
 {
+  freeNA(node->include_path);
+  freeNA(node->include_subtree);
+  freeNA(node->exclude);
+  freeNA(node->exclude_path);
+
   if(node->child_heavypaths)                    //PT leaf with descendents
   {
     for(int i=0; i < node->num_child_paths; i++)
@@ -119,6 +129,7 @@ void free_HPT_rec(Path* node)
 
   free(node);
 }
+
 
 /*
 For the given heavypath, create a Path structure that represents the path.
@@ -167,7 +178,7 @@ Path* partition_heavypath(Node **heavypath, int length, int depth,
 /*
 Return a Path for the given node of alt_tree.  The Path will be a leaf
 node of the path tree.
-Either 1) the leaf will point to a leaf node of alt_tree,
+Either 1) the leaf will point to a node (internal or leaf) of alt_tree,
 or     2) child_heavypath will point to a heavypath representing the
           descendant of the alt_tree node.
 */
@@ -251,9 +262,402 @@ for that Path object.
 //    node->path_to_root = get_path_to_root_HPT(node);
 //}
 
+/* Return the min transfer index in the subtree rooted at path.
+*/
+int get_ti_min(Path* path)
+{
+  return min(path->d_min_path + path->diff_path,
+             path->d_min_subtree + path->diff_subtree);
+}
+
+/* Return the transfer index in the subtree rooted at path, given the
+modifying values. Return the max if usemax is true, other return the min.
+*/
+int get_ti_x_mod(Path* path, int accum_path, int accum_subtree, bool usemax)
+{
+  if(usemax)
+    return get_ti_max_mod(path, accum_path, accum_subtree);
+  else
+    return get_ti_min_mod(path, accum_path, accum_subtree);
+}
+
+/* Return the min transfer index in the subtree rooted at path, given the
+modifying values.
+*/
+int get_ti_min_mod(Path* path, int accum_path, int accum_subtree)
+{
+  if(path->node && path->num_child_paths == 0)    //leaf of HPT
+    return path->d_min_path + path->diff_path + accum_path;
+  else
+    return min(path->d_min_path + path->diff_path + accum_path,
+               path->d_min_subtree + path->diff_subtree + accum_subtree);
+}
+
+/* Return the max transfer index in the subtree rooted at path.
+*/
+int get_ti_max(Path* path)
+{
+  if(path->node && path->num_child_paths == 0)    //leaf of HPT
+    return path->d_max_path + path->diff_path;
+  else
+    return max(path->d_max_path + path->diff_path,
+               path->d_max_subtree + path->diff_subtree);
+}
+
+/* Return the max transfer index in the subtree rooted at path, given the
+modifying values.
+*/
+int get_ti_max_mod(Path* path, int accum_path, int accum_subtree)
+{
+  return max(path->d_max_path + path->diff_path + accum_path,
+             path->d_max_subtree + path->diff_subtree + accum_subtree);
+}
+
+/* Return the transfer set for the best node in the Heavy Path Tree to which
+the given root Path belongs.
+
+@note  user responsible for the memory
+
+Descend from the root of the HPT as long as the best value in the child's
+subtree is equal to the best of the whole tree. On the way down, add the
+included leaves. Once to the bottom, mark the excluded leaves for that node.
+Visit all of the leaves in the subtree keeping only those that are not marked
+to be excluded.
+*/
+NodeArray* get_transfer_set_HPT(Path* hptroot, Tree* alt_tree)
+{
+  //print_HPT_sets(hptroot);
+  int min = get_ti_min(hptroot);
+  int max = alt_tree->nb_taxa - get_ti_max(hptroot);
+  NodeArray *set;
+  if(min <= max)
+  {
+    Path* min_node = get_min_path(hptroot);
+    fprintf(stderr, "  min node HPT: %i\n", min_node->id);
+    fprintf(stderr, "  min node: "); print_node(min_node->node);
+    set = get_transfer_set_for_node_HPT(min_node, alt_tree, false);
+    fprintf(stderr, "TRANSFER SET min (%i): ", set->i);
+    printNA(set);
+    assert(set->i == min);
+  }
+  else
+  {
+    Path* max_node = get_max_path(hptroot);
+    fprintf(stderr, "  max node HPT: %i\n", max_node->id);
+    fprintf(stderr, "  max node: "); print_node(max_node->node);
+    set = get_transfer_set_for_node_HPT(max_node, alt_tree, true);
+    fprintf(stderr, "TRANSFER SET max (%i == %i): ", set->i, max);
+    printNA(set);
+    assert(set->i == max);
+  }
+
+  return set;
+}
+
+
+/* Return the Path corresponding to the node in alt_tree with the minimum
+transfer distance.
+*/
+Path* get_min_path(Path* hptroot)
+{
+  return get_x_path(hptroot, false);
+}
+
+/* Return the Path corresponding to the node in alt_tree with the maximum
+transfer distance.
+*/
+Path* get_max_path(Path* hptroot)
+{
+  return get_x_path(hptroot, true);
+}
+
+/* Return the Path corresponding to the node in alt_tree with the minimum
+transfer distance if usemax is true, otherwise return the min.
+*/
+Path* get_x_path(Path* hptroot, bool usemax)
+{
+  int target;
+  if(usemax)
+    target = get_ti_max(hptroot);
+  else
+    target = get_ti_min(hptroot);
+
+  Path* currentnode = hptroot;
+  int accum_path = hptroot->diff_path;
+  int accum_subtree = hptroot->diff_subtree;
+  while(true)
+  {
+    fprintf(stderr, "  v %i (%i, %i)\n", currentnode->id, accum_path, accum_subtree);
+    if(currentnode->right &&
+       get_ti_x_mod(currentnode->right, accum_path, accum_subtree, usemax) == target)
+    {
+      currentnode = currentnode->right;
+      accum_path += currentnode->diff_path;
+      accum_subtree += currentnode->diff_subtree;
+    }
+    else if(currentnode->left &&
+            get_ti_x_mod(currentnode->left, accum_path, accum_subtree, usemax) == target)
+    {
+      currentnode = currentnode->left;
+      accum_path += currentnode->diff_path;
+      accum_subtree += currentnode->diff_subtree;
+    }
+    else if(currentnode->child_heavypaths) //PT leaf (internal node of alt_tree)
+    {
+      bool notfound = true;
+      for(int i=0; i < currentnode->num_child_paths; i++)
+      {
+        if(get_ti_x_mod(currentnode->child_heavypaths[i],
+                        accum_subtree, accum_subtree, usemax) == target)
+        {
+          currentnode = currentnode->child_heavypaths[i];
+          notfound = false;
+          accum_path = currentnode->diff_path + accum_subtree;
+          accum_subtree = currentnode->diff_subtree + accum_subtree;
+        }
+
+      }
+
+      if(notfound)
+        return currentnode;
+    }
+    else
+      return currentnode;                  //HPT leaf (leaf of alt_tree)
+  }
+}
+
+/* Return the transfer set for the given node. If usemax is true, then
+get the leaf set corresponding to the max value.
+
+@note  you must free any memory associated to t->transfer_set before calling
+       this function
+*/
+NodeArray* get_transfer_set_for_node_HPT(Path* n, Tree* alt_tree, bool usemax)
+{
+  if(usemax)
+    return get_max_transfer_set_for_node_HPT(n, alt_tree);
+  else
+    return get_min_transfer_set_for_node_HPT(n, alt_tree);
+}
+
+/* Return the min transfer set for the given node.
+*/
+NodeArray* get_min_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
+{
+  NodeArray* transfer_set = allocateNA(INCLUDE_EXCLUDE_SIZE);
+
+  Path** path = get_path_to_root_HPT(n);
+    //Ascent to root while collecting include_subree leaves from ancestral
+    //PTs, and the include_path and exclude_path leaves from this PT:
+  bool in_subtree = true;    //True until we pass from this PT to the parent PT
+  NodeArray* excludelist = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  for(int i=0; i <= n->total_depth; i++)
+  {
+    if(i && path[i]->num_child_paths)
+      in_subtree = false;
+    if(in_subtree)
+    {
+      appendNA(excludelist, path[i]->exclude_path);
+      appendNA(transfer_set, path[i]->include_path);
+      if(!isEmptyNA(path[i]->exclude_path))
+      {
+        fprintf(stderr, "     ST exclude_path: "); print_HPT_node(path[i]); printNA(path[i]->exclude_path);
+      }
+    }
+    else
+{
+      appendNA(transfer_set, path[i]->include_subtree);
+      if(!isEmptyNA(path[i]->include_subtree))
+      {
+        fprintf(stderr, "        include_subtree: "); print_HPT_node(path[i]); printNA(path[i]->include_subtree);
+      }
+}
+  }
+  fprintf(stderr, "  included(%d): ", transfer_set->i); printNA(transfer_set);
+  fprintf(stderr, "  excluded(%d): ", excludelist->i); printNA(excludelist);
+
+  for(int i=0; i < n->exclude->i; i++)
+    n->exclude->a[i]->exclude_this = true;
+  for(int i=0; i < excludelist->i; i++)
+    excludelist->a[i]->exclude_this = true;
+
+    //Traverse the alt_tree subtree, including only the alt_tree leaves that
+    //have exclude_this == false:
+  alt_tree->transfer_set = transfer_set;
+  pre_order_traversal_subtree(alt_tree, n->node, &include_subtree);
+
+  for(int i=0; i < n->exclude->i; i++)
+    n->exclude->a[i]->exclude_this = false;
+  for(int i=0; i < excludelist->i; i++)
+    excludelist->a[i]->exclude_this = false;
+
+  freeNA(excludelist);
+  free(path);
+  return transfer_set;
+}
+
+/* Return the max transfer set for the given node.
+
+For the maximum case we have to:
+- include all exclude nodes for this path,
+- include all exclude_path lists from ancestors in this PT,
+- inside this TP we
+  - exclude all include_subtree lists from siblings to the left, ignoring
+    those to the right.
+- outside this TP we
+  - exclude all include_subtree lists from siblings of all ancestors
+    (at a TP leaf, we exclude all include_subtrees from sibling TPs)
+
+All leaves from sibling subtrees to the ancestors are then added to the TS,
+unless they have been excluded.
+*/
+NodeArray* get_max_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
+{
+  NodeArray* transfer_set = allocateNA(INCLUDE_EXCLUDE_SIZE);
+
+  Path** path = get_path_to_root_HPT(n);
+    //Ascent to root while collecting include_subree leaves from ancestral
+    //PTs, and the include_path and exclude_path leaves from this PT:
+  bool in_subtree = true;   //True until we pass from this PT to the parent PT
+  NodeArray* excludelist = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  for(int i=0; i <= n->total_depth; i++)
+  {
+    fprintf(stderr, "   %d\n", path[i]->id);
+    if(i && path[i]->num_child_paths)
+      in_subtree = false;
+
+    if(in_subtree)          //in this PT
+      appendNA(transfer_set, path[i]->exclude_path);
+
+    appendNA(excludelist, path[i]->include_subtree);
+  }
+  fprintf(stderr, "  included(%d): ", transfer_set->i); printNA(transfer_set);
+  fprintf(stderr, "  excluded(%d): ", excludelist->i); printNA(excludelist);
+
+    //Inclue the exclude list from this node:
+  appendNA(transfer_set, n->exclude);
+
+  for(int i=0; i < excludelist->i; i++)
+    excludelist->a[i]->exclude_this = true;
+
+    //Traverse the alt_tree subtree, including only the alt_tree leaves that
+    //have exclude_this == false:
+  alt_tree->transfer_set = transfer_set;
+  include_leaves_from_ancestral_subtrees(alt_tree, n->node);
+
+  for(int i=0; i < excludelist->i; i++)
+    excludelist->a[i]->exclude_this = false;
+
+  freeNA(excludelist);
+  free(path);
+  return transfer_set;
+}
+//NodeArray* get_max_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
+//{
+//  NodeArray* transfer_set = allocateNA(INCLUDE_EXCLUDE_SIZE);
+//
+//  Path** path = get_path_to_root_HPT(n);
+//    //Ascent to root while collecting include_subree leaves from ancestral
+//    //PTs, and the include_path and exclude_path leaves from this PT:
+//  bool in_subtree = true;   //True until we pass from this PT to the parent PT
+//  NodeArray* excludelist = allocateNA(INCLUDE_EXCLUDE_SIZE);
+//  for(int i=0; i <= n->total_depth; i++)
+//  {
+//    fprintf(stderr, "   %d\n", path[i]->id);
+//    if(i && path[i]->num_child_paths)
+//      in_subtree = false;
+//    if(in_subtree)          //in this PT
+//    {
+//      if(path[i]->exclude_path->i)
+//      {
+//        fprintf(stderr, " ++ exclude_path:\n");
+//        printNA(path[i]->exclude_path);
+//      }
+//      appendNA(transfer_set, path[i]->exclude_path);
+//
+//      if(i && path[i]->right == path[i-1])  //left subtree is the sibling
+//      {
+//      fprintf(stderr, "   left child: %d\n", path[i]->left->id);
+//if(path[i]->left->include_subtree->i)
+//{
+//fprintf(stderr, " -- exclude_path:\n");
+//printNA(path[i]->left->include_subtree);
+//}
+//        appendNA(excludelist, path[i]->left->include_subtree);
+//      }
+//    }
+//    else                    //in an ancestral PT
+//    {
+//      if(path[i]->num_child_paths)
+//        for(int j=0; j < path[i]->num_child_paths; j++)
+//          if(path[i]->child_heavypaths[j] != path[i-1])   //a sibling PT
+//            appendNA(excludelist, path[i]->child_heavypaths[j]->include_subtree);
+//
+//      if(path[i]->sibling)
+//        appendNA(excludelist, path[i]->sibling->include_subtree);
+//    }
+//  }
+//  fprintf(stderr, "  included(%d): ", transfer_set->i); printNA(transfer_set);
+//  fprintf(stderr, "  excluded(%d): ", excludelist->i); printNA(excludelist);
+//
+//    //Inclue the exclude list from this node:
+//  appendNA(transfer_set, n->exclude);
+//
+//  for(int i=0; i < excludelist->i; i++)
+//    excludelist->a[i]->exclude_this = true;
+//
+//    //Traverse the alt_tree subtree, including only the alt_tree leaves that
+//    //have exclude_this == false:
+//  alt_tree->transfer_set = transfer_set;
+//  include_leaves_from_ancestral_subtrees(alt_tree, n->node);
+//
+//  for(int i=0; i < excludelist->i; i++)
+//    excludelist->a[i]->exclude_this = false;
+//
+//  free(path);
+//  return transfer_set;
+//}
+
+
+/* Traverse to the root of alt_tree while including all the leaves from the
+sibling subrees that do not have exclude_this == true.
+*/
+void include_leaves_from_ancestral_subtrees(Tree* t, Node* n)
+{
+	NodeArray *siblings = get_siblings(n);
+	while(siblings)			//the root has no siblings.
+	{
+		for(int i=0; i < siblings->i; i++)
+			pre_order_traversal_subtree(t, siblings->a[i], &include_subtree);
+
+		freeNA(siblings);
+		n = n->neigh[0];
+		siblings = get_siblings(n);
+	}
+}
+
+/* Visit leaves of the subHPT rooted at this node and add them to transfer_set
+if path->node->exclude_this == false.
+*/
+//void add_subtree_to_TS(Path* n, NodeArray* transfer_set)
+//{
+//  if(n->left)
+//    add_subtree_to_TS(n->left, transfer_set);
+//  if(n->right)
+//    add_subtree_to_TS(n->right, transfer_set);
+//  if(n->node)                         //n represents a node of alt_tree
+//  {
+//    if(n->child_heavypaths)           //n not a leaf of alt_tree
+//      for(int i=0; i < n->num_child_paths; i++)
+//        add_subtree_to_TS(n->child_heavypaths[i], transfer_set);
+//    else if(!n->node->exclude_this)   //n a leaf of alt_tree and not excluded
+//      addNodeNA(transfer_set, n->node);
+//  }
+//}
+
 /*
 Build a path (vector of Path*) from this Path leaf up to the root of the HPT,
-following each PT to it's root in turn.
+following each PT to its root in turn.
 */
 void set_path_to_root_HPT(Path* leaf, Path** path_to_root)
 {
@@ -275,18 +679,19 @@ void set_path_to_root_HPT(Path* leaf, Path** path_to_root)
 }
 
 /*
-Build a path (vector of Path*) from this Path leaf up to the root of the HPT,
-following each PT to it's root in turn.
+Build a path (vector of Path*) from this node up to the root of the HPT,
+following each PT to it's root in turn. The length of the path is
+node->total_depth+1.
 
 @warning    user reponsible for memory
 */
-Path** get_path_to_root_HPT(Path* leaf)
+Path** get_path_to_root_HPT(Path* node)
 {
-  int pathlen = leaf->total_depth+1;
+  int pathlen = node->total_depth+1;
   Path** path_to_root = calloc(pathlen, sizeof(Path*));
   int i_path = 0;
 
-  Path* w = leaf;
+  Path* w = node;
   while(w != NULL)                    //traverse up between PTs
   {
     while(1)                          //traverse up each PT
@@ -308,7 +713,7 @@ Path** get_path_to_root_HPT(Path* leaf)
 
 
 /*
-Return the heavypath rooted at the node.
+Return the heavypath rooted at the node root.
    - user responsible for memory of returned heavypath.
 */
 Node** get_heavypath(Node* root, int* length)
@@ -375,13 +780,16 @@ void add_leaf_HPT(Node* leaf)
   {
     if(path[i]->node)                 //leaf of PT (points to node in alt_tree)
     {                                 //(child is root of heavypath)
+      addNodeNA(path[i]->exclude, leaf); //exclude leaf contained in a subtree
       for(int j=0; j < path[i]->num_child_paths; j++)
       {
         path[i]->child_heavypaths[j]->diff_path += path[i]->diff_subtree;
         path[i]->child_heavypaths[j]->diff_subtree += path[i]->diff_subtree;
 
         if(path[i]->child_heavypaths[j] != path[i-1])
-        {
+        {                                //include leaf for sibling subtrees
+          addNodeNA(path[i]->child_heavypaths[j]->include_subtree, leaf);
+          addNodeNA(path[i]->child_heavypaths[j]->include_path, leaf);
           path[i]->child_heavypaths[j]->diff_path += 1;
           path[i]->child_heavypaths[j]->diff_subtree += 1;
         }
@@ -397,12 +805,16 @@ void add_leaf_HPT(Node* leaf)
 
       if(path[i-1] == path[i]->right) //right child of i is in the path
       {
+        addNodeNA(path[i]->left->include_subtree, leaf);
+        addNodeNA(path[i]->left->exclude_path, leaf);
         path[i]->left->diff_path += path[i]->diff_path - 1;
         path[i]->left->diff_subtree += path[i]->diff_subtree + 1;
       }
       else                            //left child of i is in the path
       {
         assert(path[i-1] == path[i]->left);
+        addNodeNA(path[i]->right->include_path, leaf);
+        addNodeNA(path[i]->right->include_subtree, leaf);
         path[i]->right->diff_path += path[i]->diff_path + 1;
         path[i]->right->diff_subtree += path[i]->diff_subtree + 1;
       }
@@ -412,6 +824,10 @@ void add_leaf_HPT(Node* leaf)
   }
   assert(path[0]->node && path[0]->child_heavypaths == NULL &&
          path[0]->left == NULL && path[0]->right == NULL);       //HPT leaf
+  //fprintf(stderr, "HPT leaf exclude:\n\t"); print_HPT_node(path[0]);
+  //fprintf(stderr, "\t"); print_node(leaf);
+  addNodeNA(path[0]->exclude, leaf);
+  //fprintf(stderr, "   exclude address: %p\n", path[0]->exclude);
   path[0]->d_min_path += path[0]->diff_path - 1;
   path[0]->d_max_path = path[0]->d_min_path;
   path[0]->diff_path = path[0]->diff_subtree = 0;
@@ -521,7 +937,7 @@ path from the given leaf to the root of the HPT.
 */
 void reset_leaf_HPT(Node *leaf)
 {
-    //Follow the path from the root to the leaf, resetting the values along
+    //Follow the path from the leaf to the root, resetting the values along
     //the way:
   Path* w = leaf->path;
   Path* lastw = w;
@@ -538,12 +954,16 @@ void reset_leaf_HPT(Node *leaf)
         {
           w->child_heavypaths[i]->diff_path = 0;
           w->child_heavypaths[i]->diff_subtree = 0;
+          clearNA(w->child_heavypaths[i]->include_subtree);
+          clearNA(w->child_heavypaths[i]->include_path);
         }
     }
 
+    clearNA(w->exclude);
     while(w->parent != NULL)          //traverse up each PT
     {
       w = w->parent;
+      clearNA(w->exclude);
 
       w->diff_path = w->diff_subtree = 0;
       w->d_min_path = min(w->left->d_min_path, w->right->d_min_path);
@@ -553,6 +973,12 @@ void reset_leaf_HPT(Node *leaf)
 
       w->left->diff_path = w->left->diff_subtree = 0;
       w->right->diff_path = w->right->diff_subtree = 0;
+      clearNA(w->right->exclude_path);
+      clearNA(w->right->include_subtree);
+      clearNA(w->right->include_path);
+      clearNA(w->left->exclude_path);
+      clearNA(w->left->include_subtree);
+      clearNA(w->left->include_path);
     }
 
     lastw = w;
@@ -592,10 +1018,10 @@ void print_HPT_node(const Path* n)
 Print the Heavy Path Tree (HPT) in dot format. HPT edges will be dashed, while
 edges of alt_tree (not in the HPT) will be solid.
 */
-void print_HPT_dot(Path* hproot, Node* altroot, int repid)
+void print_HPT_dot(Path* hproot, Node* altroot, int filenameid)
 {
   char filename[15];
-  sprintf(filename, "hptree_%i.dot", repid);
+  sprintf(filename, "hptree_%i.dot", filenameid);
   fprintf(stderr, "Creating DOT: %s\n", filename);
   FILE *f = fopen(filename, "w");
   if(f == NULL)
@@ -755,4 +1181,33 @@ void print_HPT_keynode_dot(FILE *f)
   fprintf(f, "{min_path|min_subtree} | ");
   fprintf(f, "{max_path|max_subtree}}}");
   fprintf(f, "\"];\n");
+}
+
+/* Recursively print the include and exclude sets for the nodes that descend
+from the given one.
+*/
+void print_HPT_sets(Path* node)
+{
+  fprintf(stderr, "%i\n", node->id);
+  fprintf(stderr, "exclude: ");
+  for(int i=0; i < node->exclude->i; i++)
+    fprintf(stderr, "%s ", node->exclude->a[i]->name);
+  fprintf(stderr, "\nexclude_path: ");
+  for(int i=0; i < node->exclude_path->i; i++)
+    fprintf(stderr, "%s ", node->exclude_path->a[i]->name);
+  fprintf(stderr, "\ninclude_path: ");
+  for(int i=0; i < node->include_path->i; i++)
+    fprintf(stderr, "%s ", node->include_path->a[i]->name);
+  fprintf(stderr, "\ninclude_subtree: ");
+  for(int i=0; i < node->include_subtree->i; i++)
+    fprintf(stderr, "%s ", node->include_subtree->a[i]->name);
+  fprintf(stderr, "\n");
+
+  if(node->left)
+    print_HPT_sets(node->left);
+  if(node->child_heavypaths)             //leaf of PT but not HPT
+    for(int i=0; i < node->num_child_paths; i++)
+      print_HPT_sets(node->child_heavypaths[i]);
+  if(node->right)
+    print_HPT_sets(node->right);
 }

@@ -96,7 +96,7 @@ typedef struct __Node {
 
         // Variables used for rapid transfer index calculation on the heavypath
         // decomposition for alt_tree:
-  Path* path;      // Corresponding Path from the heavypath tree for this leaf.
+  Path* path;      // Corresponding Path from the heavypath tree for this node.
                    // (allocated and freed in compute_transfer_indices_fast())
   
 
@@ -391,13 +391,17 @@ NodeArray* allocateNA(int n);
 */
 NodeArray* copyNA(NodeArray *la);
 
-/* Add a leaf to the leaf array.
+/* Add a Node to the array.
 */
 void addNodeNA(NodeArray *la, Node *u);
 
-/* Remove the last leaf from the array.
+/* Remove the last node from the array.
 */
 void removeNodeNA(NodeArray *la);
+
+/* Return true if this NA is empty.
+*/
+bool isEmptyNA(NodeArray *la);
 
 /* Clear the array.
 */
@@ -582,7 +586,7 @@ NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax);
 NodeArray* get_complement_tset(Tree* t);
 
 /* Add to n->transfer_set all of those leaves in the subtree that are not
-in the n->exclude array.
+in the exclude array.
 
 @note  allocateLA() must already have been called on n->transfer_set 
 */

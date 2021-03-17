@@ -99,11 +99,6 @@ void assert_is_leaf(Node* leaf);
 */
 Node** path_to_root(Node *n);
 
-/* Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
-leaf to the root.
-*/
-void add_leaf_HPT(Node* leaf);
-
 /* Return an array mapping the index of a leaf Node in leaves1, to a leaf Node
 from leaves2.
 

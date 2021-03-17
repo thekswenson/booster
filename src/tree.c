@@ -2104,7 +2104,7 @@ NodeArray* copyNA(NodeArray *la) {
 }
 
 /*
-Add a leaf to the leaf array.
+Add a Node to the array.
 */
 void addNodeNA(NodeArray* la, Node* u) {
   if(la->n == la->i) {		//Double the size if necessary:
@@ -2115,7 +2115,7 @@ void addNodeNA(NodeArray* la, Node* u) {
   la->a[(la->i)++] = u;
 }
 
-/* Remove a leaf from the array.
+/* Remove a Node from the array.
 */
 void removeNodeNA(NodeArray *la) {
 	if(la->i)
@@ -2126,6 +2126,14 @@ void removeNodeNA(NodeArray *la) {
     Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 	}
 }
+
+/*
+Return true if this NA is empty.
+*/
+bool isEmptyNA(NodeArray *la) {
+	return la->i == 0;
+}
+
 
 /*
 Clear the array.
@@ -2177,7 +2185,7 @@ NodeArray* concatinateNA(NodeArray *la1, NodeArray *la2, bool freemem) {
   return newla;
 }
 
-/* Append the elemnts of la2 to la1.
+/* Append the elements of la2 to la1.
 */
 void appendNA(NodeArray *la1, NodeArray *la2)
 {
@@ -2599,6 +2607,7 @@ Node* get_x_node(Tree* t, bool min)
 	}
 }
 
+
 /* Return the transfer set for the node of the given alt_tree with the minimum
 transfer distance.
 
@@ -2607,7 +2616,7 @@ transfer distance.
 Descend from the root to a child as long as the best value in the child's
 subtree is equal to the best of the whole tree. On the way down, add the
 included leaves. Once to the bottom, mark the excluded leaves for that node.
-Visit all of the leaves in the subtree keeping only those that are not maked
+Visit all of the leaves in the subtree keeping only those that are not marked
 to be excluded.
 */
 NodeArray* get_transfer_set(Tree* t)
@@ -2700,6 +2709,25 @@ NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax)
 	return t->transfer_set;
 }
 
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the exclude array.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* exclude)
+{
+		//Mark excluded leaves.
+  for(int i=0; i < exclude->i; i++)
+		exclude->a[i]->exclude_this = true;
+
+		//Include all leaves in the subtree except those excluded.
+  pre_order_traversal_subtree(t, n, &include_subtree);
+
+		//Unmark the excluded leaves.
+  for(int i=0; i < exclude->i; i++)
+		exclude->a[i]->exclude_this = false;
+}
+
 /* Return the complement the transfer_set.
 
 @note  user responsible for the memory
@@ -2721,24 +2749,6 @@ NodeArray* get_complement_tset(Tree* t)
 	return tset;
 }
 
-/* Add to n->transfer_set all of those leaves in the subtree that are not
-in the n->exclude array.
-
-@note  allocateLA() must already have been called on n->transfer_set 
-*/
-void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* exclude)
-{
-		//Mark excluded leaves.
-  for(int i=0; i < exclude->i; i++)
-		exclude->a[i]->exclude_this = true;
-
-		//Include all leaves in the subtree except those excluded.
-  pre_order_traversal_subtree(t, n, &include_subtree);
-
-		//Unmark the excluded leaves.
-  for(int i=0; i < exclude->i; i++)
-		exclude->a[i]->exclude_this = false;
-}
 
 /* Descend until the node with the best transfer index, adding the included
 leaves to the given NodeArray.

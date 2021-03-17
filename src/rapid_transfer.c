@@ -136,7 +136,6 @@ tree on the alt_tree.
 */
 void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
 {
-  //int j = 0;  //TEMP
   Path* hpt_root;
   if(use_HPT)
     hpt_root = get_HPT_root(u->other);
@@ -150,16 +149,11 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
     if(u->nneigh == 1)                          //u is a leaf in ref_tree, so
     {                                           //can't be heavier than sibling
       DB_TRACE(0, "leaf - "); DB_CALL(0, print_node(u));
-      //print_HPT_dot(hpt_root, alt_tree->node0, 30000);
 
       if(use_HPT)
         add_leaf_HPT(u->other);
       else
         add_leaf(u->other);                     //add_leaf on v (in alt_tree)
-
-      //if(u->id == 3)
-      //  print_tree_dot(alt_tree, "alt_tree_after_a.dot", false);
-      //  print_HPT_dot(hpt_root, alt_tree->node0, 30001);
     }
     else
     {
@@ -170,25 +164,67 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
           add_leaf_HPT(u->lightleaves->a[i]->other);
         else
           add_leaf(u->lightleaves->a[i]->other);
-
-        //if(u->id == 12)
-        //  print_HPT_dot(hpt_root, alt_tree->node0, 20000+j*100+i);
-        //if(u->lightleaves->a[i]->id == 7)
-        //  print_tree_dot(alt_tree, "alt_tree_after_d.dot", false);
       }
     }
-    //j++;
 
       //Record the transfer index:
     if(use_HPT)
     {
-      u->ti_min = min(hpt_root->d_min_path, hpt_root->d_min_subtree);
-      u->ti_max = max(hpt_root->d_max_path, hpt_root->d_max_subtree);
+      u->ti_min = get_ti_min(hpt_root);
+      u->ti_max = get_ti_max(hpt_root);
+
+      print_HPT_dot(hpt_root, alt_tree->node0, 0);
+      fprintf(stderr, "(%i, %i) ref_tree ", u->ti_min, u->ti_max);
+      print_node(u);
+      NodeArray *tset = get_transfer_set_HPT(hpt_root, alt_tree);
+      assert(tset->i == min(u->ti_min, alt_tree->nb_taxa - u->ti_max));
+      freeNA(tset);
     }
     else
     {
       u->ti_min = alt_tree->node0->d_min;
       u->ti_max = alt_tree->node0->d_max;
+
+      u->min_node = get_min_node(alt_tree);
+      u->max_node = get_max_node(alt_tree);
+
+      //fprintf(stderr, "(%i, %i) ref_tree ", u->ti_min, u->ti_max);
+      //print_node(u);
+      //fprintf(stderr, "       alt_tree ");
+      //print_node(u->min_node);
+      //fprintf(stderr, "                ");
+      //print_node(u->max_node);
+      //fprintf(stderr, "distance: %i,%i - %i,%i\n", alt_tree->node0->d_min, alt_tree->node0->d_max, transfer_distance(alt_tree, u->min_node), transfer_distance(alt_tree, u->max_node));
+      //fprintf(stderr, "index:    %i\n", transfer_index(alt_tree));
+      //fprintf(stderr, "          %i\n", transfer_distance(alt_tree, u->min_node));
+      //fprintf(stderr, "          %i\n", transfer_distance(alt_tree, u->max_node));
+      //fprintf(stderr, "ismin?    %i\n", transfer_index_is_min(alt_tree));
+      assert(transfer_index(alt_tree) ==
+             (transfer_index_is_min(alt_tree) ? transfer_distance(alt_tree, u->min_node) : transfer_distance(alt_tree, u->max_node)));
+
+      NodeArray *tset = get_transfer_set(alt_tree);
+      //fprintf(stderr, "TRANSFER SET: ");
+      //printNA(tset);
+
+      if(!transfer_index_is_min(alt_tree))    //TODO: temporary
+      {
+        //fprintf(stderr, "MAX node: %i\n", u->max_node->id);
+        NodeArray *min_tset = get_transfer_set_for_node(alt_tree, u->max_node, false);
+        NodeArray *max_comp = get_complement_tset(alt_tree);
+        //fprintf(stderr, "%i =? %i\n", tset->i, max_comp->i);
+        //printNA(max_comp);
+        //printNA(tset);
+        assert(tset->i == max_comp->i);
+        freeNA(min_tset);
+        freeNA(max_comp);
+      }
+
+      NodeArray *min_tset = get_transfer_set_for_node(alt_tree, u->min_node, false);
+      NodeArray *max_tset = get_transfer_set_for_node(alt_tree, u->max_node, true);
+      assert(tset->i == (transfer_index_is_min(alt_tree) ? min_tset->i : max_tset->i));
+      freeNA(tset);
+      freeNA(min_tset);
+      freeNA(max_tset);
     }
     DB_CALL(0, fprintf(stderr, "++++++++ TI: %i %i\n", u->ti_min, u->ti_max));
 
@@ -250,7 +286,7 @@ void add_leaf(Node *leaf)
     //with the diff values, subtracting 1, but adding 1 to the diff values of
     //nodes off the path:
   Node **path = path_to_root(leaf);
-  for(int i = leaf->depth; i > 0; i--)              //For all non leaf Nodes
+  for(int i = leaf->depth; i > 0; i--)              //For all non-leaf Nodes
   {
     DB_TRACE(0, "current: "); DB_CALL(0, print_node(path[i]));
     DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[i]));
