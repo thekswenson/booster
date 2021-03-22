@@ -50,7 +50,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 typedef struct __NodeArray NodeArray;
 typedef struct __Path Path;
 
-/* Every node in our binary trees have several neighbours with indices  0, 1, 2.... We allow polytomies of any degree.
+/* Every node in our binary trees have several neighbours with indices 0, 1, 2
+   .... We allow polytomies of any degree.
    An internal node with no multifurcation has 3 outgoing directions/neighbours.
 
    In rooted trees, the interpretation is the following:
@@ -93,6 +94,7 @@ typedef struct __Node {
   NodeArray* include; // Include these leaves in the transfer set for the subtree
   NodeArray* exclude; // Exclude these leaves from the transfer set for this node
   bool exclude_this;  // Used for leaf nodes when calculating the transfer set
+                      // (only used for the old SLOW version).
 
         // Variables used for rapid transfer index calculation on the heavypath
         // decomposition for alt_tree:
@@ -579,18 +581,26 @@ node).
 */
 NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax);
 
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the exclude array. Do this by decending to children where the difference
+between the size of the exclude array and the size of the subtree is non-zero.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_nonexcluded_from_subtree(Tree* t, Node* n);
+
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the exclude array. Do this by visiting the entire subtree.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_nonexcluded_from_subree_SLOW(Tree* t, Node* n, NodeArray* exclude);
+
 /* Return the complement the transfer_set.
 
 @note  user responsible for the memory
 */
 NodeArray* get_complement_tset(Tree* t);
-
-/* Add to n->transfer_set all of those leaves in the subtree that are not
-in the exclude array.
-
-@note  allocateLA() must already have been called on n->transfer_set 
-*/
-void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* la);
 
 /* Descend until the node with the best transfer index, adding the included
 leaves to the given NodeArray.

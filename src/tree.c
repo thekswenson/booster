@@ -2632,7 +2632,7 @@ NodeArray* get_transfer_set(Tree* t)
 		n = collect_included_above(t, n, t->transfer_set);
 
 			//The leaves that should be excluded from this subtree for the transfer
-			//set below this node, are the leaves that should be include in the
+			//set below this node are the leaves that should be include in the
 			//transfer set for the leaves above this node.
 		appendNA(t->transfer_set, n->exclude);
 	}
@@ -2642,7 +2642,7 @@ NodeArray* get_transfer_set(Tree* t)
 		n = collect_included(n, t->transfer_set);
 
 			//Include all leaves in the subtree except those excluded.
-		add_transferset_from_subtree(t, n, n->exclude);
+		add_nonexcluded_from_subtree(t, n);
 	}
 
 	return t->transfer_set;
@@ -2678,15 +2678,14 @@ NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax)
 	{
 			//Include all leaves from subtrees hanging off the path to the root.
 		Node *node = n;
-		NodeArray *siblings = get_siblings(node);
-		while(siblings)			//the root has no siblings.
+		while(node->depth)			//the root has no siblings.
 		{
-			for(int i=0; i < siblings->i; i++)
-				add_transferset_from_subtree(t, siblings->a[i], node->include);
+			int start = node->neigh[0]->depth ? 1 : 0;
+			for(int i=start; i < node->neigh[0]->nneigh; i++)
+				if(node->neigh[0]->neigh[i] != node)
+					add_nonexcluded_from_subtree(t, node->neigh[0]->neigh[i]);
 
-			freeNA(siblings);
 			node = node->neigh[0];
-			siblings = get_siblings(node);
 		}
 			//Include all the leaves from this subtree.
 		appendNA(t->transfer_set, n->exclude);
@@ -2694,7 +2693,7 @@ NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax)
 	else
 	{
 			//Include all leaves in the subtree except those excluded.
-		add_transferset_from_subtree(t, n, n->exclude);
+		add_nonexcluded_from_subtree(t, n);
 
 			//Include all leaves included on the path to the root.
 		Node *node = n;
@@ -2709,12 +2708,37 @@ NodeArray* get_transfer_set_for_node(Tree* t, Node* n, bool usemax)
 	return t->transfer_set;
 }
 
+
 /* Add to n->transfer_set all of those leaves in the subtree that are not
-in the exclude array.
+in the exclude array. Do this by decending to children where the difference
+between the size of the exclude array and the size of the subtree is non-zero.
 
 @note  allocateLA() must already have been called on n->transfer_set 
 */
-void add_transferset_from_subtree(Tree* t, Node* n, NodeArray* exclude)
+void add_nonexcluded_from_subtree(Tree* t, Node* n)
+{
+	if(n->exclude->i == n->subtreesize)
+		return;
+
+	if(n->nneigh == 1)				//leaf
+		addNodeNA(t->transfer_set, n);
+	else
+	{
+		int start = 1;
+		if(n->nneigh == 2)			//root
+			start = 0;
+
+		for(int i=start; i < n->nneigh; i++)
+			add_nonexcluded_from_subtree(t, n->neigh[i]);
+	}
+}
+
+/* Add to n->transfer_set all of those leaves in the subtree that are not
+in the exclude array. Do this by visiting the entire subtree.
+
+@note  allocateLA() must already have been called on n->transfer_set 
+*/
+void add_nonexcluded_from_subree_SLOW(Tree* t, Node* n, NodeArray* exclude)
 {
 		//Mark excluded leaves.
   for(int i=0; i < exclude->i; i++)
@@ -2804,7 +2828,7 @@ Node* collect_included_above(Tree* t, Node* n, NodeArray* includearray)
 			//leaves that need to be excluded from the sibling's leaves.
 		for(int i = start; i < n->nneigh; i++)
 			if(n->neigh[i] != goodchild)
-				add_transferset_from_subtree(t, n->neigh[i], goodchild->include);
+				add_nonexcluded_from_subtree(t, n->neigh[i]);
 
 		n = goodchild;
 		start = 1;
@@ -2812,8 +2836,7 @@ Node* collect_included_above(Tree* t, Node* n, NodeArray* includearray)
 }
 
 
-/* Add all leaves from the subtree to the transfer_set, except those with the
-id marked true in the exclude_vector.
+/* Add this node if it is a leaf and it is not excluded.
 */
 void include_subtree(Node* current, Node* previous, Edge *e, Tree* tree)
 {

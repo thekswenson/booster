@@ -74,6 +74,7 @@ typedef struct __Path {
 
   int total_depth;          //# of Path structs to root through all PTs
                             // (i.e. # nodes in path to HPT root).
+  int num_hpt_leaves;       //# of descendant HPT (alt_tree) leaves
 
   Path*** path_to_root_p;   //Pointer to array of Path objects to root.
                             // (this points to memory shared between all HPT
@@ -255,10 +256,16 @@ unless they have been excluded.
 */
 NodeArray* get_max_transfer_set_for_node_HPT(Path* n, Tree* alt_tree);
 
+/* Traverse the tree only to the HPT leaves that are not excluded. Add these
+leaves to the transfer_set. This is done by comparing the excluded array
+of a node to the number of HPT leaves descending from that node.
+*/
+void add_nonexcluded_from_HPT_subtree(NodeArray* transfer_set, Path* n);
+
 /* Traverse to the root of alt_tree while including all the leaves from the
 sibling subrees that do not have exclude_this == true.
 */
-void include_leaves_from_ancestral_subtrees(Tree* t, Node* n);
+void include_leaves_from_ancestral_subtrees(NodeArray* transfer_set, Path* n);
 
 /* Visit leaves of the subHPT rooted at this node and add them to transfer_set
 if path->node->exclude_this == false.

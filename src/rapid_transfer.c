@@ -173,9 +173,9 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
       u->ti_min = get_ti_min(hpt_root);
       u->ti_max = get_ti_max(hpt_root);
 
-      print_HPT_dot(hpt_root, alt_tree->node0, 0);
-      fprintf(stderr, "(%i, %i) ref_tree ", u->ti_min, u->ti_max);
-      print_node(u);
+      //print_HPT_dot(hpt_root, alt_tree->node0, 0);
+      //fprintf(stderr, "(%i, %i) ref_tree ", u->ti_min, u->ti_max);
+      //print_node(u);
       NodeArray *tset = get_transfer_set_HPT(hpt_root, alt_tree);
       assert(tset->i == min(u->ti_min, alt_tree->nb_taxa - u->ti_max));
       freeNA(tset);
@@ -205,19 +205,6 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
       NodeArray *tset = get_transfer_set(alt_tree);
       //fprintf(stderr, "TRANSFER SET: ");
       //printNA(tset);
-
-      if(!transfer_index_is_min(alt_tree))    //TODO: temporary
-      {
-        //fprintf(stderr, "MAX node: %i\n", u->max_node->id);
-        NodeArray *min_tset = get_transfer_set_for_node(alt_tree, u->max_node, false);
-        NodeArray *max_comp = get_complement_tset(alt_tree);
-        //fprintf(stderr, "%i =? %i\n", tset->i, max_comp->i);
-        //printNA(max_comp);
-        //printNA(tset);
-        assert(tset->i == max_comp->i);
-        freeNA(min_tset);
-        freeNA(max_comp);
-      }
 
       NodeArray *min_tset = get_transfer_set_for_node(alt_tree, u->min_node, false);
       NodeArray *max_tset = get_transfer_set_for_node(alt_tree, u->max_node, true);
