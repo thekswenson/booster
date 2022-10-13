@@ -43,7 +43,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 // #define COMPARE_TBE_METHODS  //Compare rtbe to tbe
 // #define ASSUME_BALANCED      //Use code that assumes balanced bootstrap trees
 
-void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff,int count_per_branch);
+void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff, int count_per_branch, bool get_sets);
 void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, int num_trees, int quiet);
 int* species_to_move(Edge* re, Edge* be, int dist, int nb_taxa);
 void compute_transfer_indices(Tree *ref_tree, const int n, const int m,
@@ -56,7 +56,7 @@ void assert_equal_TI(int *ti_new, int *ti_old, Tree *ref_tree);
 
 void usage(FILE * out,char *name){
   fprintf(out,"Usage: ");
-  fprintf(out,"%s -i <ref tree file (newick)> -b <bootstrap tree file (newick)> [-@ <cpus> -d <dist_cutoff> -r <raw distance output tree file> -S <stat file> -o <output tree> -v]\n",name);
+  fprintf(out,"%s -i <ref tree file (newick)> -b <bootstrap tree file (newick)> [-@ <cpus> -d <dist_cutoff> -r <raw distance output tree file> -S <stat file> -o <output tree> -tqv]\n",name);
   fprintf(out,"Options:\n");
   fprintf(out,"      -i, --input            : Input tree file\n");
   fprintf(out,"      -b, --boot             : Bootstrap tree file (1 file containing all bootstrap trees)\n");
@@ -64,6 +64,7 @@ void usage(FILE * out,char *name){
   fprintf(out,"      -r, --out-raw          : Output file (optional) with raw support values in the form of id|avgdist|depth, default : none\n");
   fprintf(out,"      -@, --num-threads      : Number of threads (default 1)\n");
   fprintf(out,"      -S, --stat-file        : Prints output statistics for each branch in the given output file (optional)\n");
+  fprintf(out,"      -t, --transfer-sets    : Prints the set of leaves that must be transfered for each edge in input tree (used with rtbe only).\n");
   fprintf(out,"      -c, --count-per-branch : Prints individual taxa moves for each branches in the log file (only with -S & -a tbe)\n");
   fprintf(out,"      -d, --dist-cutoff      : Distance cutoff to consider a branch for taxa transfer index computation (-a tbe only, default 0.3)\n");
   fprintf(out,"      -a, --algo             : rtbe or tbe or fbp (default rtbe)\n");
@@ -167,6 +168,7 @@ int main (int argc, char* argv[]) {
   char *algo = "rtbe";
   
   int quiet = 0;
+  bool get_sets = false;
   
   int num_threads = 1;
 
@@ -188,13 +190,14 @@ int main (int argc, char* argv[]) {
     {"help" , no_argument      , 0, 'h'},
     {"version", no_argument      , 0, 'v'},
     {"quiet", no_argument      , 0, 'q'},
+    {"transfer-sets", no_argument      , 0, 't'},
     {0, 0, 0, 0}
   };
 
   opterr = 0;
   int option_index = 0;
   int c = 0;
-  while ((c = getopt_long(argc, argv, "i:a:b:d:o:cs:@:S:n:r:hvq", long_options, &option_index)) != -1){
+  while ((c = getopt_long(argc, argv, "i:a:b:d:o:cs:@:S:n:r:hvqt", long_options, &option_index)) != -1){
     switch (c){
     case 'i': input_tree = optarg; break;
     case 'b': boot_trees = optarg; break;
@@ -206,6 +209,7 @@ int main (int argc, char* argv[]) {
     case 'S': stat_out = optarg; break;
     case 'r': out_raw_tree = optarg; break;
     case 'q': quiet = 1; break;
+    case 't': get_sets = true; break;
     case 'h': usage(stdout,argv[0]); return EXIT_SUCCESS; break; 
     case 'v': version(stdout,argv[0]); return EXIT_SUCCESS; break;
     case ':': fprintf(stderr, "Option -%c requires an argument\n", optopt); return EXIT_FAILURE; break;
@@ -215,6 +219,11 @@ int main (int argc, char* argv[]) {
 
   if(strcmp(algo,"tbe") && strcmp(algo,"fbp") && strcmp(algo, "rtbe")){
     fprintf(stderr,"Algo option must be one of \"rtbe\" or \"tbe\" or \"fbp\"\n");
+    Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
+  }
+
+  if(get_sets && strcmp(algo, "rtbe")) {
+    fprintf(stderr,"Option -t must be used with \"rtbe\"\n");
     Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
   }
   
@@ -332,7 +341,7 @@ int main (int argc, char* argv[]) {
   if(!quiet)  fprintf(stderr,"Num trees: %d\n",num_trees);
 
   if(!strcmp(algo,"tbe") || rapid){
-    tbe(rapid, ref_tree, ref_raw_tree, alt_tree_strings, taxname_lookup_table, stat_file, num_trees, quiet, dist_cutoff, count_per_branch);
+    tbe(rapid, ref_tree, ref_raw_tree, alt_tree_strings, taxname_lookup_table, stat_file, num_trees, quiet, dist_cutoff, count_per_branch, get_sets);
   }else{
     fbp(ref_tree, alt_tree_strings, taxname_lookup_table, num_trees, quiet);
   }
@@ -425,7 +434,8 @@ void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, in
 
 void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
          char **alt_tree_strings, char** taxname_lookup_table, FILE *stat_file,
-         int num_trees, int quiet, double dist_cutoff, int count_per_branch){
+         int num_trees, int quiet, double dist_cutoff, int count_per_branch,
+         bool get_sets){
   int m = ref_tree->nb_edges;
   int n = ref_tree->nb_taxa;
   int i_tree;
@@ -491,7 +501,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
                                              trans_ind_tmp[i_tree]);
       #else
       compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
-                                    trans_ind_tmp[i_tree]);
+                                    trans_ind_tmp[i_tree], get_sets);
       #endif
 
       if(omp_get_num_threads() > 1)
@@ -515,7 +525,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
                                            trans_ind_fast[i_tree]);
     #else
     compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
-                                  trans_ind_fast[i_tree]);
+                                  trans_ind_fast[i_tree], get_sets);
     #endif
 
     if(omp_get_num_threads() > 1)

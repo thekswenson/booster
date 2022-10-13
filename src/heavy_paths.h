@@ -92,6 +92,7 @@ typedef struct __Path {
 
   int d_max_path;     //Max value for the subpath.
   int d_max_subtree;  //Max value over all pendant subtrees for this (sub)Path.
+
     //The transfer set (TS) values:
   NodeArray* include_path;    //Included leaves in TS for nodes on the (sub)path.
   NodeArray* include_subtree; //Included leaves in the transfer set for the subtrees.
@@ -102,11 +103,14 @@ typedef struct __Path {
 /*
 Allocate a new Path, setting all the default values.
 */
-Path* new_Path();
+Path* new_Path(bool getsets);
 
 /* Recursiveley decompose the alternate tree into heavy paths according to
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
+
+If getsets is true, then maintain the datastructures for computing the
+transfer sets.
 
 @note   each heavypath corresponds to a tree of Paths we call the PathSearchTree
         (PST) leaves of the PSTs are glued the roots of other PSTs (using the
@@ -118,9 +122,9 @@ Path of the Path tree.
         of the HPT will have path_to_root_p set to this value, as well as
         the root of the HPT.
 */
-Path* do_heavy_decomposition(Node* root);
+Path* do_heavy_decomposition(Node* root, bool getsets);
 Path* heavy_decomposition(Node* root, int depth, int* maxdepth,
-                          Path*** path_to_root_pointer);
+                          Path*** path_to_root_pointer, bool getsets);
 
 /* Free the memory for the HeavyPathTree (allocated in heavy_decomposition).
 */
@@ -131,9 +135,11 @@ void free_HPT_rec(Path* node);
 Split the path in half and create a Path for each half.  If a half is a single
 node, then hang the next heavy path off of it. If it's a leaf of alt_tree, then
 link the Path to the corresponding leaf in alt_tree.
+
+If getsets is true, then maintain the bookeeping for the transfer sets.
 */
 Path* partition_heavypath(Node** n, int length, int depth, int* maxdepth,
-                          Path*** path_to_root_pointer);
+                          Path*** path_to_root_pointer, bool getsets);
 
 /*
 Return a Path for the given node of alt_tree.  The Path will be a leaf
@@ -143,7 +149,7 @@ or     2) child_heavypath will point to a heavypath representing the
           descendant of the alt_tree node.
 */
 Path* heavypath_leaf(Node* node, int depth, int* maxdepth,
-                     Path*** path_to_root_pointer);
+                     Path*** path_to_root_pointer, bool getsets);
 
 /* Return the min transfer index in the subtree rooted at path.
 */
@@ -186,7 +192,7 @@ bool is_HPT_leaf(Path* n);
 Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
 leaf to the root.
 */
-void add_leaf_HPT(Node* leaf);
+void add_leaf_HPT(Node* leaf, bool getsets);
 
 /* Print the given heavypath.
 */
@@ -298,7 +304,7 @@ Path* get_HPT_root(Node* leaf);
 /* Reset the path and subtree min and max, along with the diff values for the
 path from the given leaf to the root of the HPT.
 */
-void reset_leaf_HPT(Node* leaf);
+void reset_leaf_HPT(Node* leaf, bool getsets);
 
 /*--------------------- OUTPUT FUNCTIONS -------------------------*/
 

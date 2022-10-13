@@ -22,10 +22,14 @@ index of its child u.  The symmetric difference of leaf sets is kept implicity
 in the alt_tree.
 
 At the end, transfer_index[i] will have the transfer index for edge i.
+
+If get_sets is true, then compute the transfer sets for each edge of ref_tree,
+not just the index (i.e. the size of the sets).
 */
 void compute_transfer_indices_fast(Tree *ref_tree, const int n,
                                    const int m, Tree *alt_tree,
-                                   int *transfer_index);
+                                   int *transfer_index,
+                                   bool get_sets);
 
 /* Compute the Transfer Index (TI) for all edges, comparing a reference tree to
 an alternate balanced (bootstrap) tree.  This does not do a heavypath
@@ -62,25 +66,33 @@ subtrees off the path.
 
 If use_HPT is false, then assume a balanced alt_tree, otherwise use a heavypath
 tree on the alt_tree.
+
+If getsets is true, then maintain sets to be transferred.
 */
-void add_heavy_path(Node* u, Tree* alt_tree, bool use_HPT);
+void add_heavy_path(Node* u, Tree* alt_tree, bool use_HPT, bool getsets);
 
 /* Follow a leaf in ref_tree up to the root. Call reset_leaf on the leaves in
 the subtrees off the path.
 
 If use_HPT is false, then assume balanced alt_tree, otherwise update reset
 values on the HeavyPath Tree.
+
+If getsets is true, then maintain sets to be transferred.
 */
-void reset_heavy_path(Node* u, bool use_HTP);
+void reset_heavy_path(Node* u, bool use_HTP, bool getsets);
 
 /* Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
 leaf to the root.
+
+If getsets is true, then maintain sets to be transferred.
 */
-void add_leaf(Node *leaf);
+void add_leaf(Node *leaf, bool getset);
 /* Reset the d_min, d_max, d_lazy, and diff values for the path from the given
 leaf (from alt_tree) to the root.
+
+If getsets is true, then maintain sets to be transferred.
 */
-void reset_leaf(Node *leaf);
+void reset_leaf(Node *leaf, bool getset);
 
 /* Follow the nodes on the path, updating d_min and d_max on the way up.
 */

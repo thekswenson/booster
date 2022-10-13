@@ -21,10 +21,14 @@ u', as long as u is the "heavy" child of u'. This is repeated, starting at
 each leaf.
 
 At the end, the transfer index for edge i will be in transfer_index[i].
+
+If getsets is true, then compute the transfer sets for each edge of ref_tree,
+not just the index (i.e. the size of the sets).
 */
 void compute_transfer_indices_fast(Tree *ref_tree, const int n,
                                    const int m, Tree *alt_tree,
-                                   int *transfer_indices)
+                                   int *transfer_indices,
+                                   bool getsets)
 {
   set_leaf_bijection(ref_tree, alt_tree);  //Map leaves between the two trees
 
@@ -32,7 +36,7 @@ void compute_transfer_indices_fast(Tree *ref_tree, const int n,
   DB_TRACE(0, "alt_tree:\n");
   DB_CALL(0, print_nodes_post_order(alt_tree));
 
-  Path* heavypath_root = do_heavy_decomposition(alt_tree->node0);
+  Path* heavypath_root = do_heavy_decomposition(alt_tree->node0, getsets);
   DB_CALL(0, verify_all_leaves_touched(alt_tree));
 
   Node** ref_leaves = ref_tree->leaves->a; //Leaves in ref_tree
@@ -51,9 +55,10 @@ void compute_transfer_indices_fast(Tree *ref_tree, const int n,
                print_nodes_TIvars(alt_tree->a_nodes, alt_tree->nb_nodes));
 
     //print_HPT_dot(heavypath_root, alt_tree->node0, i);
-    add_heavy_path(u, alt_tree, true); //Get TI on ref heavypath starting at u
+                                        //Get TI on ref heavypath starting at u
+    add_heavy_path(u, alt_tree, true, getsets);
     //print_HPT_dot(heavypath_root, alt_tree->node0, 100+i);
-    reset_heavy_path(u, true);         //Reset TI variables on the HPT
+    reset_heavy_path(u, true, getsets); //Reset TI variables on the HPT
   }
 
   free_HPT(heavypath_root);
@@ -107,9 +112,9 @@ void compute_transfer_indices_fast_BALANCED(Tree *ref_tree, const int n,
             print_nodes_TIvars(alt_tree->a_nodes, alt_tree->nb_nodes));
 
     //print_tree_dot(alt_tree, "alt_tree_0.dot", false);
-    add_heavy_path(u, alt_tree, false); //Get TI on heavy path starting at u
+    add_heavy_path(u, alt_tree, false, false); //Get TI on heavy path starting at u
     //print_tree_dot(alt_tree, "alt_tree_1.dot", false);
-    reset_heavy_path(u, false);         //Reset TI associated variables
+    reset_heavy_path(u, false, false);         //Reset TI associated variables
     //print_tree_dot(alt_tree, "alt_tree_2.dot", false);
   }
 
@@ -133,8 +138,10 @@ Call add_leaf on the leaves in the subtrees off the path.
 
 If use_HPT is false, then assume a balanced alt_tree, otherwise use a heavypath
 tree on the alt_tree.
+
+If getsets is true, then maintain sets to be transferred.
 */
-void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
+void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT, bool getsets)
 {
   Path* hpt_root;
   if(use_HPT)
@@ -151,9 +158,9 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
       DB_TRACE(0, "leaf - "); DB_CALL(0, print_node(u));
 
       if(use_HPT)
-        add_leaf_HPT(u->other);
+        add_leaf_HPT(u->other, getsets);
       else
-        add_leaf(u->other);                     //add_leaf on v (in alt_tree)
+        add_leaf(u->other, getsets);                     //add_leaf on v (in alt_tree)
     }
     else
     {
@@ -161,9 +168,9 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
       for(int i=0; i < u->lightleaves->i; i++)  //a subtree
       {
         if(use_HPT)                             //add_leaf on leaves in subtree
-          add_leaf_HPT(u->lightleaves->a[i]->other);
+          add_leaf_HPT(u->lightleaves->a[i]->other, getsets);
         else
-          add_leaf(u->lightleaves->a[i]->other);
+          add_leaf(u->lightleaves->a[i]->other, getsets);
       }
     }
 
@@ -176,9 +183,13 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
       //print_HPT_dot(hpt_root, alt_tree->node0, 0);
       //fprintf(stderr, "(%i, %i) ref_tree ", u->ti_min, u->ti_max);
       //print_node(u);
-      NodeArray *tset = get_transfer_set_HPT(hpt_root, alt_tree);
-      assert(tset->i == min(u->ti_min, alt_tree->nb_taxa - u->ti_max));
-      freeNA(tset);
+
+      if(getsets)
+      {
+        NodeArray *tset = get_transfer_set_HPT(hpt_root, alt_tree);
+        assert(tset->i == min(u->ti_min, alt_tree->nb_taxa - u->ti_max));
+        freeNA(tset);
+      }
     }
     else
     {
@@ -215,7 +226,7 @@ void add_heavy_path(Node *u, Tree *alt_tree, bool use_HPT)
     }
     DB_CALL(0, fprintf(stderr, "++++++++ TI: %i %i\n", u->ti_min, u->ti_max));
 
-      //Head upwards:
+      //Head upwards in ref_tree:
     if(u->depth != 0 && u == u->neigh[0]->heavychild)
       u = u->neigh[0];       //u in on the heavy side of its parent.
     else
@@ -230,26 +241,28 @@ the subtrees off the path.
 
 If use_HPT is false, then assume balanced alt_tree, otherwise reset values on
 the HeavyPath Tree (HPT).
+
+If getsets is true, then maintain sets to be transferred.
 */
-void reset_heavy_path(Node* u, bool use_HPT)
+void reset_heavy_path(Node* u, bool use_HPT, bool getsets)
 {
-  while(u)                               //Have not visited the root and have
-  {                                      //not seen a heavier sibling
+  while(u)                                  //Have not visited the root and have
+  {                                         //not seen a heavier sibling
       //Add the leaves from the light subtree:
-    if(u->nneigh == 1)        //a leaf
+    if(u->nneigh == 1)                      //a leaf
     {
       if(use_HPT)
-        reset_leaf_HPT(u->other);       //call add_leaf on the Path for v
+        reset_leaf_HPT(u->other, getsets);  //call add_leaf on the Path for v
       else
-        reset_leaf(u->other);           //call add_leaf on v
+        reset_leaf(u->other, getsets);      //call add_leaf on v
     }
     else
     {
       for(int i=0; i < u->lightleaves->i; i++)
         if(use_HPT)
-          reset_leaf_HPT(u->lightleaves->a[i]->other);
+          reset_leaf_HPT(u->lightleaves->a[i]->other, getsets);
         else
-          reset_leaf(u->lightleaves->a[i]->other);
+          reset_leaf(u->lightleaves->a[i]->other, getsets);
     }
 
       //Head upwards:
@@ -264,8 +277,10 @@ void reset_heavy_path(Node* u, bool use_HPT)
 /*
 Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
 leaf to the root.
+
+If getset is true, then do the bookkeeping for the transfer set.
 */
-void add_leaf(Node *leaf)
+void add_leaf(Node *leaf, bool getset)
 {
   assert_is_leaf(leaf);
 
@@ -278,7 +293,8 @@ void add_leaf(Node *leaf)
     DB_TRACE(0, "current: "); DB_CALL(0, print_node(path[i]));
     DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[i]));
     path[i]->d_lazy += path[i]->diff - 1;
-    addNodeNA(path[i]->exclude, leaf);
+    if(getset)
+      addNodeNA(path[i]->exclude, leaf);
     path[i-1]->diff += path[i]->diff;               //Push difference down
 
     int startindex = 1;                             //Not the root
@@ -289,7 +305,8 @@ void add_leaf(Node *leaf)
       if(path[i]->neigh[j] != path[i-1])            //A node off the path
       {
         path[i]->neigh[j]->diff += path[i]->diff+1;
-        addNodeNA(path[i]->neigh[j]->include, leaf);
+        if(getset)
+          addNodeNA(path[i]->neigh[j]->include, leaf);
       }
 
     path[i]->diff = 0;
@@ -299,7 +316,8 @@ void add_leaf(Node *leaf)
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
   leaf->d_lazy += leaf->diff - 1;
   leaf->diff = 0;
-  addNodeNA(leaf->exclude, leaf);
+  if(getset)
+    addNodeNA(leaf->exclude, leaf);
   DB_TRACE(0, "         "); DB_CALL(0, print_node_TIvars(path[0]));
 
     //Follow the path back up to the root, updating the d_min and d_max values
@@ -312,7 +330,7 @@ void add_leaf(Node *leaf)
 Reset the d_min, d_max, d_lazy, and diff values for the path from the given
 leaf (from alt_tree) to the root.
 */
-void reset_leaf(Node *leaf)
+void reset_leaf(Node *leaf, bool getset)
 {
   assert_is_leaf(leaf);
 
@@ -326,20 +344,23 @@ void reset_leaf(Node *leaf)
     n->d_max = n->subtreesize;
     n->d_min = 1;
     n->diff = 0;
-    clearNA(n->exclude);
+    if(getset)
+      clearNA(n->exclude);
     if(n->nneigh != 1)         //not the leaf
     {
       for(int i=1; i < n->nneigh; i++)
         if(n->neigh[i] != pathchild)    //reset other children
         {
           n->neigh[i]->diff = 0;
-          clearNA(n->neigh[i]->include);
+          if(getset)
+            clearNA(n->neigh[i]->include);
         }
 
       if(n->depth == 0)        //the root
       {
         n->neigh[0]->diff = 0; //reset the first child
-        clearNA(n->neigh[0]->include);
+        if(getset)
+          clearNA(n->neigh[0]->include);
         return;
       }
     }

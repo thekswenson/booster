@@ -7,7 +7,7 @@ Here we implement the heavy path decomposition of the alt_tree.
 Allocate a new Path, setting all the default values.
 */
 int id_counter = 0;          //Global id counter for Path structs.
-Path* new_Path()
+Path* new_Path(bool getsets)
 {
   Path *newpath = malloc(sizeof(Path));
 
@@ -35,10 +35,20 @@ Path* new_Path()
   newpath->d_max_path = 0;
   newpath->d_max_subtree = 1;
 
-  newpath->include_subtree = allocateNA(INCLUDE_EXCLUDE_SIZE);
-  newpath->include_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
-  newpath->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
-  newpath->exclude_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  if(getsets)
+  {
+    newpath->include_subtree = allocateNA(INCLUDE_EXCLUDE_SIZE);
+    newpath->include_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
+    newpath->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+    newpath->exclude_path = allocateNA(INCLUDE_EXCLUDE_SIZE);
+  }
+  else
+  {
+    newpath->include_subtree = NULL;
+    newpath->include_path = NULL;
+    newpath->exclude = NULL;
+    newpath->exclude_path = NULL;
+  }
 
   return newpath;
 }
@@ -48,6 +58,9 @@ Path* new_Path()
 Recursively decompose the alternative tree into heavy paths according to
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
+
+If getsets is true, then maintain the datastructures for computing the
+transfer sets.
 
 @note   Each heavypath corresponds to a tree of Paths we call the PathSearchTree
         (PST).  Leaves of the PSTs are glued to the roots of other PSTs (using
@@ -59,12 +72,13 @@ Path of the Path tree.
         of the HPT will have path_to_root_p set to this value, as well as
         the root of the HPT.
 */
-Path* do_heavy_decomposition(Node *root)
+Path* do_heavy_decomposition(Node *root, bool getsets)
 {
   int maxdepth = 0;
   Path*** path_to_root_pointer = malloc(sizeof(Path**));
   Path* heavy_path_tree_root = heavy_decomposition(root, 0, &maxdepth,
-                                                   path_to_root_pointer);
+                                                   path_to_root_pointer,
+                                                   getsets);
 
   *path_to_root_pointer = calloc(maxdepth+1, sizeof(Path*));
   heavy_path_tree_root->path_to_root_p = path_to_root_pointer;
@@ -74,7 +88,7 @@ Path* do_heavy_decomposition(Node *root)
 }
 
 Path* heavy_decomposition(Node *root, int depth, int *maxdepth,
-                          Path*** path_to_root_pointer)
+                          Path*** path_to_root_pointer, bool getsets)
 {
   int length;
   Node** heavypath = get_heavypath(root, &length);
@@ -82,10 +96,10 @@ Path* heavy_decomposition(Node *root, int depth, int *maxdepth,
   Path *path_root;
   if(length == 1)
     path_root = heavypath_leaf(heavypath[0], depth, maxdepth,
-                               path_to_root_pointer);
+                               path_to_root_pointer, getsets);
   else
     path_root = partition_heavypath(heavypath, length, depth, maxdepth,
-                                    path_to_root_pointer);
+                                    path_to_root_pointer, getsets);
 
   free(heavypath);
 
@@ -136,30 +150,33 @@ For the given heavypath, create a Path structure that represents the path.
 Split the path in half and create a Path for each half.  If a half is a single
 node, then hang the next heavy path off of it. If it's a leaf of alt_tree, then
 link the Path to the corresponding leaf in alt_tree.
+
+If getsets is true, then maintain the bookeeping for the transfer sets.
 */
 Path* partition_heavypath(Node **heavypath, int length, int depth,
-                          int *maxdepth, Path ***path_to_root_pointer)
+                          int *maxdepth, Path ***path_to_root_pointer,
+                          bool getsets)
 {
-  Path* newpath = new_Path();
+  Path* newpath = new_Path(getsets);
   newpath->total_depth = depth;
 
     //Split the heavy path into two equal-length subpaths:
   int l1 = ceil(length/2);
   if(l1 == 1)
     newpath->left = heavypath_leaf(heavypath[0], depth+1, maxdepth,
-                                   path_to_root_pointer);
+                                   path_to_root_pointer, getsets);
   else
     newpath->left = partition_heavypath(heavypath, l1, depth+1, maxdepth,
-                                        path_to_root_pointer);
+                                        path_to_root_pointer, getsets);
   newpath->left->parent = newpath;
 
   int l2 = length - l1;
   if(l2 == 1)
     newpath->right = heavypath_leaf(heavypath[l1], depth+1, maxdepth,
-                                    path_to_root_pointer);
+                                    path_to_root_pointer, getsets);
   else
     newpath->right = partition_heavypath(&heavypath[l1], l2, depth+1, maxdepth,
-                                         path_to_root_pointer);
+                                         path_to_root_pointer, getsets);
   newpath->right->parent = newpath;
 
   newpath->right->sibling = newpath->left;
@@ -186,9 +203,9 @@ or     2) child_heavypath will point to a heavypath representing the
           descendant of the alt_tree node.
 */
 Path* heavypath_leaf(Node *node, int depth, int *maxdepth,
-                     Path ***path_to_root_pointer)
+                     Path ***path_to_root_pointer, bool getsets)
 {
-  Path* newpath = new_Path();
+  Path* newpath = new_Path(getsets);
 
   newpath->total_depth = depth;
   newpath->node = node;           //attach the path to the node
@@ -219,7 +236,8 @@ Path* heavypath_leaf(Node *node, int depth, int *maxdepth,
       {
         newpath->child_heavypaths[j] = heavy_decomposition(node->neigh[i_neigh],
                                                            depth+1, maxdepth,
-                                                           path_to_root_pointer);
+                                                           path_to_root_pointer,
+                                                           getsets);
         newpath->child_heavypaths[j]->parent_heavypath = newpath;
 
         newpath->num_hpt_leaves += newpath->child_heavypaths[j]->num_hpt_leaves;
@@ -703,7 +721,7 @@ bool is_HPT_leaf(Path *n)
 Add the given leaf (from alt_tree) to the set L(v) for all v on a path from
 leaf to the root.
 */
-void add_leaf_HPT(Node* leaf)
+void add_leaf_HPT(Node* leaf, bool getsets)
 {
   DB_TRACE(0, "alt_tree leaf - "); DB_CALL(0, print_node(leaf));
     //Go down the path from the root to leaf, pushing down and modifying diff
@@ -712,13 +730,14 @@ void add_leaf_HPT(Node* leaf)
     //heavypath:
   set_path_to_root_HPT(leaf->path, *leaf->path->path_to_root_p);
   Path** path = *leaf->path->path_to_root_p;
-  //Path** path = leaf->path->path_to_root;
   int pathlen = path[0]->total_depth + 1; //length (in number of nodes)
   for(int i = pathlen-1; i > 0; i--)      //go from root to parent of leaf.
   {
     if(path[i]->node)                 //leaf of PST (points to node in alt_tree)
     {                                 //(child is root of heavypath)
-      addNodeNA(path[i]->exclude, leaf); //exclude leaf contained in a subtree
+      if(getsets)
+        addNodeNA(path[i]->exclude, leaf); //exclude leaf contained in a subtree
+
       for(int j=0; j < path[i]->num_child_paths; j++)
       {
         path[i]->child_heavypaths[j]->diff_path += path[i]->diff_subtree;
@@ -726,8 +745,11 @@ void add_leaf_HPT(Node* leaf)
 
         if(path[i]->child_heavypaths[j] != path[i-1])
         {                                //include leaf for sibling subtrees
-          addNodeNA(path[i]->child_heavypaths[j]->include_subtree, leaf);
-          addNodeNA(path[i]->child_heavypaths[j]->include_path, leaf);
+          if(getsets)
+          {
+            addNodeNA(path[i]->child_heavypaths[j]->include_subtree, leaf);
+            addNodeNA(path[i]->child_heavypaths[j]->include_path, leaf);
+          }
           path[i]->child_heavypaths[j]->diff_path += 1;
           path[i]->child_heavypaths[j]->diff_subtree += 1;
         }
@@ -743,16 +765,22 @@ void add_leaf_HPT(Node* leaf)
 
       if(path[i-1] == path[i]->right) //right child of i is in the path
       {
-        addNodeNA(path[i]->left->include_subtree, leaf);
-        addNodeNA(path[i]->left->exclude_path, leaf);
+        if(getsets)
+        {
+          addNodeNA(path[i]->left->include_subtree, leaf);
+          addNodeNA(path[i]->left->exclude_path, leaf);
+        }
         path[i]->left->diff_path += path[i]->diff_path - 1;
         path[i]->left->diff_subtree += path[i]->diff_subtree + 1;
       }
       else                            //left child of i is in the path
       {
         assert(path[i-1] == path[i]->left);
-        addNodeNA(path[i]->right->include_path, leaf);
-        addNodeNA(path[i]->right->include_subtree, leaf);
+        if(getsets)
+        {
+          addNodeNA(path[i]->right->include_path, leaf);
+          addNodeNA(path[i]->right->include_subtree, leaf);
+        }
         path[i]->right->diff_path += path[i]->diff_path + 1;
         path[i]->right->diff_subtree += path[i]->diff_subtree + 1;
       }
@@ -764,8 +792,10 @@ void add_leaf_HPT(Node* leaf)
          path[0]->left == NULL && path[0]->right == NULL);       //HPT leaf
   //fprintf(stderr, "HPT leaf exclude:\n\t"); print_HPT_node(path[0]);
   //fprintf(stderr, "\t"); print_node(leaf);
-  addNodeNA(path[0]->exclude, leaf);
+  if(getsets)
+    addNodeNA(path[0]->exclude, leaf);
   //fprintf(stderr, "   exclude address: %p\n", path[0]->exclude);
+
   path[0]->d_min_path += path[0]->diff_path - 1;
   path[0]->d_max_path = path[0]->d_min_path;
   path[0]->diff_path = path[0]->diff_subtree = 0;
@@ -873,7 +903,7 @@ Path* get_HPT_root(Node* leaf)
 Reset the path and subtree min and max, along with the diff values for the
 path from the given leaf to the root of the HPT.
 */
-void reset_leaf_HPT(Node *leaf)
+void reset_leaf_HPT(Node *leaf, bool getsets)
 {
     //Follow the path from the leaf to the root, resetting the values along
     //the way:
@@ -892,16 +922,21 @@ void reset_leaf_HPT(Node *leaf)
         {
           w->child_heavypaths[i]->diff_path = 0;
           w->child_heavypaths[i]->diff_subtree = 0;
-          clearNA(w->child_heavypaths[i]->include_subtree);
-          clearNA(w->child_heavypaths[i]->include_path);
+          if(getsets)
+          {
+            clearNA(w->child_heavypaths[i]->include_subtree);
+            clearNA(w->child_heavypaths[i]->include_path);
+          }
         }
     }
 
-    clearNA(w->exclude);
+    if(getsets)
+      clearNA(w->exclude);
     while(w->parent != NULL)          //traverse up each PST
     {
       w = w->parent;
-      clearNA(w->exclude);
+      if(getsets)
+        clearNA(w->exclude);
 
       w->diff_path = w->diff_subtree = 0;
       w->d_min_path = min(w->left->d_min_path, w->right->d_min_path);
@@ -911,12 +946,13 @@ void reset_leaf_HPT(Node *leaf)
 
       w->left->diff_path = w->left->diff_subtree = 0;
       w->right->diff_path = w->right->diff_subtree = 0;
-      clearNA(w->right->exclude_path);
-      clearNA(w->right->include_subtree);
-      clearNA(w->right->include_path);
-      clearNA(w->left->exclude_path);
-      clearNA(w->left->include_subtree);
-      clearNA(w->left->include_path);
+      if(getsets)
+      {
+        clearNA(w->right->exclude_path);
+        clearNA(w->right->include_subtree);
+        clearNA(w->right->include_path);
+        clearNA(w->left->exclude_path);
+      }
     }
 
     lastw = w;
