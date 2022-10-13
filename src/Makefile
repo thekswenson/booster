@@ -5,10 +5,23 @@ UNAME := $(shell uname)
 
 #Use -DDEBUG to print debug output.  Use -DNDEBUG to ignore asserts.
 
+# Profiling:
+#CFLAGS = -Wall -pg -g -DVERSION=\"$(GIT_VERSION)\" -fno-stack-protector
+#CFLAGS_OMP = -Wall -pg -g -fopenmp
+
+# Debug output:
 #CFLAGS = -Wall -g -DVERSION=\"$(GIT_VERSION)\" -DDEBUG -fno-stack-protector
 #CFLAGS_OMP = -Wall -g -fopenmp -DDEBUG
-#CFLAGS = -Wall -g -DVERSION=\"$(GIT_VERSION)\" -DNDEBUG
-#CFLAGS_OMP = -Wall -g -fopenmp -DNDEBUG
+
+# Debug without output:
+#CFLAGS = -Wall -g -DVERSION=\"$(GIT_VERSION)\"
+#CFLAGS_OMP = -Wall -g -fopenmp
+
+# Production with asserts:
+#CFLAGS = -Wall -O3 -DVERSION=\"$(GIT_VERSION)\"
+#CFLAGS_OMP = -Wall -O3 -fopenmp
+
+# Production without asserts:
 CFLAGS = -Wall -O3 -DVERSION=\"$(GIT_VERSION)\" -DNDEBUG
 CFLAGS_OMP = -Wall -O3 -fopenmp -DNDEBUG
 

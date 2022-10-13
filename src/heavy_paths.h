@@ -7,16 +7,16 @@
   whole tree. This shaves a logarithmic factor off of the running time
   when traveling up the alternate tree from leaf to root.
  
-  In the alternate tree, a heavy path is split into a tree ("Path Tree" or
-  PT) where each node of the tree represents a subpath of the heavypath. Each
-  subpath knows its min/max value on the subpath, and its min/max value for
+  In the alternate tree, a heavy path is split into a tree ("Path Search Tree"
+  or PST) where each node of the tree represents a subpath of the heavypath.
+  Each subpath knows its min/max value on the subpath, and its min/max value for
   all the subtrees hanging off the subpath. This way, when a heavy path is
   updated the min value on the path down to the "exit" node will decrease by 1,
   but the min value off the path will increase by 1, along with the rest of
   the heavy path below the exit node.
 
-  The PTs are joined together into a "HeavyPath Tree" (HPT), where a root of
-  a PT is connected to a leaf of another PT using the parent_heavypath and
+  The PSTs are joined together into a "HeavyPath Tree" (HPT), where a root of
+  a PST is connected to a leaf of another PST using the parent_heavypath and
   child_heavypath pointers.
 */
 
@@ -34,24 +34,24 @@ typedef struct __NodeArray NodeArray;
   We use the following conventions:
   - the original alt_tree is decomposed into heavypaths
   - a heavypath is represented by a binary tree of Path objects (called the
-    PathTree PT) where:
-    * the root of the HP tree contains information for the entire heavypath
-    * the leaves of the HP tree contain node information for the corresponding
+    PathSearchTree PST) where:
+    * the root of the PST contains information for the entire heavypath
+    * the leaves of the PST contain node information for the corresponding
       node in alt_tree, along with pointers (child_heavypaths) to the
       pendant heavypaths (in the case of a binary tree there is only one
-      pendant heavypath).
+      pendant heavypath which represents the "lighter" child).
 
-  In other words, a tree of Paths (PT) represents a heavypath, where the Path
+  In other words, a tree of Paths (PST) represents a heavypath, where the Path
   object can be an internal subpath node, the root (which contains the
   summary bookkeeping for the entire heavypath), or a leaf.
-  In the case of a PT leaf, the Path represents the node in alt_tree on the
+  In the case of a PST leaf, the Path represents the node in alt_tree on the
   current heavypath, pointed to by ->node, and the pendant heavypath is pointed
   to by ->child_heavypath.
  
-  The entire group of PTs, that are glued together by child_heavypath pointers,
+  The entire group of PSTs, that are glued together by child_heavypath pointers,
   is called the HeavyPathTree (HPT).
 
-  If the PT leaf is also a leaf of alt_tree, then n->left and n->right and
+  If the PST leaf is also a leaf of alt_tree, then n->left and n->right and
   n->child_heavypaths are NULL and the path_to_root is an array of Path objects
   that represent the path in the HPT from the leaf to the root of the HPT.
 */
@@ -66,13 +66,13 @@ typedef struct __Path {
   Path* sibling;
 
   Node* node;               //The node of alt_tree corresponding to this Path.
-                            // (this applies only to leaves of the PT)
+                            // (this applies only to leaves of the PST)
 
   Path** child_heavypaths;  //The array of Path tree roots pendant to this Path.
   int num_child_paths;      //The size of the child_heavypaths array.
-  Path* parent_heavypath;   //The Path that this PT hangs on.
+  Path* parent_heavypath;   //The Path that this PST hangs on.
 
-  int total_depth;          //# of Path structs to root through all PTs
+  int total_depth;          //# of Path structs to root through all PSTs
                             // (i.e. # nodes in path to HPT root).
   int num_hpt_leaves;       //# of descendant HPT (alt_tree) leaves
 
@@ -83,7 +83,7 @@ typedef struct __Path {
     //The transfer index (TI) values:
   int diff_path;      //Diff to add to subtree rooted on path.
   int diff_subtree;   //Diff to add to pendant subtrees. This is necessary since
-                      //the alt-tree nodes to the left of the path in the PT
+                      //the alt-tree nodes to the left of the path in the PST
                       //must get -1 (diff_path -= 1), whereas the subtrees of
                       //those nodes must get +1 (diff_subtree += 1).
 
@@ -108,8 +108,8 @@ Path* new_Path();
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
 
-@note   each heavypath corresponds to a tree of Paths we call the PathTree (PT)
-        leaves of the PTs are glued the roots of other PTs (using the
+@note   each heavypath corresponds to a tree of Paths we call the PathSearchTree
+        (PST) leaves of the PSTs are glued the roots of other PSTs (using the
         child_heavypath pointers).
         We call the entire tree the HeavyPathTree (HPT)
 
@@ -243,7 +243,7 @@ NodeArray* get_min_transfer_set_for_node_HPT(Path* n, Tree* alt_tree);
 
 For the maximum case we have to:
 - include all exclude nodes for this path,
-- include all exclude_path lists from ancestors in this PT,
+- include all exclude_path lists from ancestors in this PST,
 - inside this TP we
   - exclude all include_subtree lists from siblings to the left, ignoring
     those to the right.
@@ -279,14 +279,14 @@ for that Path object.
 //void set_paths_to_root(Path* node);
 
 /* Build a path from this node up to the root of the HPT, following each
-PT to it's root in turn. The length of the path is node->total_depth+1.
+PST to it's root in turn. The length of the path is node->total_depth+1.
 
 @warning    user reponsible for memory
 */
 Path** get_path_to_root_HPT(Path* node);
 
 /* Build a path from this Path leaf up to the root of the HPT, following each
-PT to its root in turn.
+PST to its root in turn.
 */
 void set_path_to_root_HPT(Path* leaf, Path** path_to_root);
 
@@ -325,11 +325,11 @@ void print_HPT_subtree_dot(Node* n, FILE* f);
 */
 void print_HPT_node_dot(Path* n, FILE* f);
 
-/* Print a string that formats a heavypath node in a PT.
+/* Print a string that formats a heavypath node in a PST.
 */
 void print_HPT_hpnode_dot(Path* n, FILE* f);
 
-/* Print a string that formats a PT node.
+/* Print a string that formats a PST node.
 */
 void print_HPT_ptnode_dot(Path* n, FILE* f);
 

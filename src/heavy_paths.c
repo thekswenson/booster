@@ -49,9 +49,9 @@ Recursively decompose the alternative tree into heavy paths according to
 the scheme described in the definition of the Path struct. Return the root
 Path of the Path tree.
 
-@note   Each heavypath corresponds to a tree of Paths we call the PathTree (PT).
-        Leaves of the PTs are glued to the roots of other PTs (using the
-        child_heavypath pointers).
+@note   Each heavypath corresponds to a tree of Paths we call the PathSearchTree
+        (PST).  Leaves of the PSTs are glued to the roots of other PSTs (using
+        the child_heavypath pointers).
         We call the entire tree the HeavyPathTree (HPT)
 
 @note   Allocate a pointer to an array that will hold a path to the root for
@@ -103,20 +103,20 @@ void free_HPT(Path* root)
 }
 void free_HPT_rec(Path* node)
 {
-  freeNA(node->include_path);
-  freeNA(node->include_subtree);
-  freeNA(node->exclude);
-  freeNA(node->exclude_path);
+  if(node->include_path) freeNA(node->include_path);
+  if(node->include_subtree) freeNA(node->include_subtree);
+  if(node->exclude) freeNA(node->exclude);
+  if(node->exclude_path) freeNA(node->exclude_path);
 
-  if(node->child_heavypaths)                    //PT leaf with descendents
+  if(node->child_heavypaths)                    //PST leaf with descendents
   {
     for(int i=0; i < node->num_child_paths; i++)
-      free_HPT_rec(node->child_heavypaths[i]);  //decend to next PT
+      free_HPT_rec(node->child_heavypaths[i]);  //decend to next PST
 
     free(node->child_heavypaths);
   }
 
-  else if(!node->node)                      //not leaf of HPT (internal PT node)
+  else if(!node->node)                      //not leaf of HPT (internal PST node)
   {
     free_HPT_rec(node->left);
     free_HPT_rec(node->right);
@@ -454,13 +454,13 @@ NodeArray* get_min_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
 
   Path** path = get_path_to_root_HPT(n);
     //Ascent to root while collecting include_subree leaves from ancestral
-    //PTs, and the include_path and exclude_path leaves from this PT:
-  bool in_PT = true;    //True until we pass from this PT to the parent PT
+    //PTs, and the include_path and exclude_path leaves from this PST:
+  bool in_PST = true;    //True until we pass from this PST to the parent PST
   for(int i=0; i <= n->total_depth; i++)
   {
     if(i && path[i]->num_child_paths)
-      in_PT = false;
-    if(in_PT)
+      in_PST = false;
+    if(in_PST)
       appendNA(transfer_set, path[i]->include_path);
     else
       appendNA(transfer_set, path[i]->include_subtree);
@@ -469,7 +469,7 @@ NodeArray* get_min_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
 
   add_nonexcluded_from_HPT_subtree(transfer_set, n);
     //Find the sibling node that roots the subtree for the HP to the right:
-  while(n->sibling)           //not root of PT
+  while(n->sibling)           //not root of PST
   {
     if(n == n->parent->left)  //we are the left child
       add_nonexcluded_from_HPT_subtree(transfer_set, n->sibling);
@@ -484,7 +484,7 @@ NodeArray* get_min_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
 
 For the maximum case we have to:
 - include all exclude nodes for this path,
-- include all exclude_path lists from ancestors in this PT,
+- include all exclude_path lists from ancestors in this PST,
 - inside this TP we
   - exclude all include_subtree lists from siblings to the left, ignoring
     those to the right.
@@ -501,14 +501,14 @@ NodeArray* get_max_transfer_set_for_node_HPT(Path* n, Tree* alt_tree)
 
   Path** path = get_path_to_root_HPT(n);
     //Ascent to root while collecting include_subree leaves from ancestral
-    //PTs, and the include_path and exclude_path leaves from this PT:
-  bool in_PT = true;   //True until we pass from this PT to the parent PT
+    //PTs, and the include_path and exclude_path leaves from this PST:
+  bool in_PST = true;   //True until we pass from this PST to the parent PST
   for(int i=0; i <= n->total_depth; i++)
   {
     if(i && path[i]->num_child_paths)
-      in_PT = false;
+      in_PST = false;
 
-    if(in_PT)          //in this PT
+    if(in_PST)          //in this PST
       appendNA(transfer_set, path[i]->exclude_path);
   }
 
@@ -556,13 +556,13 @@ void include_leaves_from_ancestral_subtrees(NodeArray* transfer_set, Path* n)
 	while(n->total_depth)			//the root of the HPT has no siblings.
 	{
     if(n->sibling)
-    {                       //n is right child or we're out of the first PT:
+    {                       //n is right child or we're out of the first PST:
       if(!in_subree || n->parent->right == n)
         add_nonexcluded_from_HPT_subtree(transfer_set, n->sibling);
 
       n = n->parent;
     }
-    else              //the root of a PT
+    else              //the root of a PST
     {
       in_subree = false;
       for(int i=0; i < n->parent_heavypath->num_child_paths; i++)
@@ -595,15 +595,15 @@ if path->node->exclude_this == false.
 
 /*
 Build a path (vector of Path*) from this Path leaf up to the root of the HPT,
-following each PT to its root in turn.
+following each PST to its root in turn.
 */
 void set_path_to_root_HPT(Path* leaf, Path** path_to_root)
 {
   int i_path = 0;
   Path* w = leaf;
-  while(w != NULL)                    //traverse up between PTs
+  while(w != NULL)                    //traverse up between PSTs
   {
-    while(1)                          //traverse up each PT
+    while(1)                          //traverse up each PST
     {
       path_to_root[i_path++] = w;
       if(w->parent == NULL)
@@ -618,7 +618,7 @@ void set_path_to_root_HPT(Path* leaf, Path** path_to_root)
 
 /*
 Build a path (vector of Path*) from this node up to the root of the HPT,
-following each PT to it's root in turn. The length of the path is
+following each PST to it's root in turn. The length of the path is
 node->total_depth+1.
 
 @warning    user reponsible for memory
@@ -630,9 +630,9 @@ Path** get_path_to_root_HPT(Path* node)
   int i_path = 0;
 
   Path* w = node;
-  while(w != NULL)                    //traverse up between PTs
+  while(w != NULL)                    //traverse up between PSTs
   {
-    while(1)                          //traverse up each PT
+    while(1)                          //traverse up each PST
     {
       path_to_root[i_path++] = w;
       if(w->parent == NULL)
@@ -716,7 +716,7 @@ void add_leaf_HPT(Node* leaf)
   int pathlen = path[0]->total_depth + 1; //length (in number of nodes)
   for(int i = pathlen-1; i > 0; i--)      //go from root to parent of leaf.
   {
-    if(path[i]->node)                 //leaf of PT (points to node in alt_tree)
+    if(path[i]->node)                 //leaf of PST (points to node in alt_tree)
     {                                 //(child is root of heavypath)
       addNodeNA(path[i]->exclude, leaf); //exclude leaf contained in a subtree
       for(int j=0; j < path[i]->num_child_paths; j++)
@@ -736,7 +736,7 @@ void add_leaf_HPT(Node* leaf)
       path[i]->d_min_path += path[i]->diff_path - 1;
       path[i]->d_max_path = path[i]->d_min_path;
     }
-    else                              //internal node of PT
+    else                              //internal node of PST
     {
       path[i-1]->diff_path += path[i]->diff_path;
       path[i-1]->diff_subtree += path[i]->diff_subtree;
@@ -773,7 +773,7 @@ void add_leaf_HPT(Node* leaf)
     //Go up the path, updating the min and max values along the way:
   for(int i=1; i < pathlen; i++)
   {
-    if(path[i]->child_heavypaths)               //leaf of a PT
+    if(path[i]->child_heavypaths)               //leaf of a PST
     {                                           //d_min_path already set
       path[i]->d_min_subtree = path[i]->child_heavypaths[0]->d_min_path +
                                path[i]->child_heavypaths[0]->diff_path;
@@ -808,7 +808,7 @@ void add_leaf_HPT(Node* leaf)
     }
     else
     {
-      assert(path[i]->left && path[i]->right);  //internal PT node
+      assert(path[i]->left && path[i]->right);  //internal PST node
       path[i]->d_min_path = min(path[i]->left->d_min_path +
                                 path[i]->left->diff_path,
                                 path[i]->right->d_min_path +
@@ -855,9 +855,9 @@ Path* get_HPT_root(Node* leaf)
   assert(leaf->nneigh == 1);
   Path* node = leaf->path;
   Path* w = node;
-  while(node != NULL)                 //traverse up between PTs
+  while(node != NULL)                 //traverse up between PSTs
   {
-    while(node->parent != NULL)       //traverse up each PT
+    while(node->parent != NULL)       //traverse up each PST
       node = node->parent;
 
     w = node;
@@ -879,11 +879,11 @@ void reset_leaf_HPT(Node *leaf)
     //the way:
   Path* w = leaf->path;
   Path* lastw = w;
-  while(w != NULL)                    //traverse up between PTs
+  while(w != NULL)                    //traverse up between PSTs
   {
     w->diff_path = w->diff_subtree = 0;
     w->d_min_path = w->d_max_path = w->node->subtreesize;
-    if(!is_HPT_leaf(w))               //this PT leaf is not a HPT leaf
+    if(!is_HPT_leaf(w))               //this PST leaf is not a HPT leaf
     {
       w->d_min_subtree = min(lastw->d_min_path, lastw->d_min_subtree);
       w->d_max_subtree = max(lastw->d_max_path, lastw->d_max_subtree);
@@ -898,7 +898,7 @@ void reset_leaf_HPT(Node *leaf)
     }
 
     clearNA(w->exclude);
-    while(w->parent != NULL)          //traverse up each PT
+    while(w->parent != NULL)          //traverse up each PST
     {
       w = w->parent;
       clearNA(w->exclude);
@@ -1060,7 +1060,8 @@ void print_HPT_node_dot(Path* n, FILE *f)
 }
 
 /*
-Print a string that formats a heavypath (alt_tree) node in a PT (PathTree).
+Print a string that formats a heavypath (alt_tree) node in a PST (Path Search
+Tree).
 
 A heavypath node will be circular and have the following format:
   1 (2)                  id (alt_id)
@@ -1093,7 +1094,7 @@ void print_HPT_hpnode_dot(Path* n, FILE *f)
   fprintf(f, "\"];\n");
 }
 
-/* Print a string that formats a PT (PathTree) node.
+/* Print a string that formats a PST (Path Search Tree) node.
 
 A pathtree node will be rectangular and have the following format:
      1                      id
@@ -1143,7 +1144,7 @@ void print_HPT_sets(Path* node)
 
   if(node->left)
     print_HPT_sets(node->left);
-  if(node->child_heavypaths)             //leaf of PT but not HPT
+  if(node->child_heavypaths)             //leaf of PST but not HPT
     for(int i=0; i < node->num_child_paths; i++)
       print_HPT_sets(node->child_heavypaths[i]);
   if(node->right)

@@ -40,7 +40,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
    (tree structures, tbe algorithm)
 */
 
-// #define COMPARE_TBE_METHODS
+// #define COMPARE_TBE_METHODS  //Compare rtbe to tbe
 // #define ASSUME_BALANCED      //Use code that assumes balanced bootstrap trees
 
 void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree, char **alt_tree_strings,char** taxname_lookup_table, FILE *stat_file, int num_trees, int quiet, double dist_cutoff,int count_per_branch);

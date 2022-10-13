@@ -29,7 +29,7 @@ void compute_transfer_indices_fast(Tree *ref_tree, const int n,
 
 /* Compute the Transfer Index (TI) for all edges, comparing a reference tree to
 an alternate balanced (bootstrap) tree.  This does not do a heavypath
-decomposition of the aslternative tree.
+decomposition of the alternate tree.
 
 This is the faster version that is based on assigning an index by traversing
 the ref_tree.
