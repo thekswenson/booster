@@ -258,8 +258,13 @@ Node* new_node(const char* name, Tree* t, int degree) {
 		t->nb_nodes_space *= 2;
 		t->a_nodes = realloc(t->a_nodes, t->nb_nodes_space*sizeof(Node*));
 	}
+	#ifdef ASSUME_BALANCED
 	nn->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
 	nn->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	#else
+	nn->include = NULL;
+	nn->exclude = NULL;
+	#endif
 	nn->exclude_this = false;
 	nn->ti_max = 0;
 	nn->ti_min = INT_MAX;
@@ -1278,8 +1283,13 @@ Node* newNode(Tree *t){
 
 	node->mheight = MAX_MHEIGHT;
 
+	#ifdef ASSUME_BALANCED
 	node->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
 	node->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	#else
+	node->include = NULL;
+	node->exclude = NULL;
+	#endif
 	node->exclude_this = false;
 	node->ti_max = 0;
 	node->ti_min = INT_MAX;
