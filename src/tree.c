@@ -237,7 +237,7 @@ void parse_double(char* in_str, int begin, int end, double* location) {
 
 /* CREATION OF A NEW TREE FROM SCRATCH, ADDING TAXA ONE AT A TIME */
 
-Node* new_node(const char* name, Tree* t, int degree) {
+Node* new_node(const char* name, Tree* t, int degree, bool getsets) {
 	int i;
 	Node* nn = (Node*) malloc(sizeof(Node));
 	nn->nneigh = degree;
@@ -259,8 +259,10 @@ Node* new_node(const char* name, Tree* t, int degree) {
 		t->a_nodes = realloc(t->a_nodes, t->nb_nodes_space*sizeof(Node*));
 	}
 	#ifdef ASSUME_BALANCED
-	nn->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
-	nn->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	if(getsets) {
+		nn->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
+		nn->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	}
 	#else
 	nn->include = NULL;
 	nn->exclude = NULL;
@@ -288,10 +290,11 @@ Edge* new_edge(Tree* t) {
 	return ne;
 }
 
-Tree* new_tree(const char* name) {
+Tree* new_tree(const char* name, bool getsets) {
 	/* allocates the space for a new tree and gives it as an output (pointer to the new tree) */
 	/* optional is the name of the first taxa. If we don't provide it, there exists a risk that we will build a
 	   tree with finally one leaf with no name */
+  /* if getsets is true, then allocate bookkeeping for transfer set computation on balanced trees*/
 	Tree* t = (Tree*) malloc(sizeof(Tree));
 	t->nb_taxa = 0;
 	t->nb_nodes = 0;
@@ -306,7 +309,7 @@ Tree* new_tree(const char* name) {
 
 	t->taxname_lookup_table = NULL;
 
-	t->node0 = newNode(t);	/* this first node _is_ a leaf */
+	t->node0 = newNode(t, getsets);	/* this first node _is_ a leaf */
 	t->node0->name=strdup(name);
 	addTip(t, strdup(name));
 
@@ -456,7 +459,7 @@ Node* copy_node_rapidTI(Node* old) {
 
 
 /* for the moment this function is used to create binary trees (where all internal nodes have three neighbours) */
-Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_left, double new_edge_length, char* node_name) {
+Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_left, double new_edge_length, char* node_name, bool getsets) {
 	/* this grafts a new node on an existing branch. the ratio has to be between 0 and 1, and is relative to the "left" tip of the branch */
 	int orig_dir_from_node_l, orig_dir_from_node_r;
 
@@ -487,7 +490,7 @@ Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_
 		  fprintf(stderr,"Error : I get a NULL branch pointer while there is at least one existing branch in the tree. Aborting.\n");
 		  Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 		}
-		Node* second_node = newNode(tree); /* will be the right node, also a leaf */
+		Node* second_node = newNode(tree, getsets); /* will be the right node, also a leaf */
 		second_node->name=strdup(node_name);
 		addTip(tree,strdup(node_name));
 		Edge* only_edge = connect_to_father(second_node, tree->node0, tree);
@@ -519,7 +522,7 @@ Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_
 	orig_dir_from_node_r = dir_a_to_b(node_r,node_l);
 
 	/* (1) */
-	Node* breakpoint = new_node(NULL, tree, 3); /* not a leaf, so has three neighbours */
+	Node* breakpoint = new_node(NULL, tree, 3, getsets); /* not a leaf, so has three neighbours */
 
 	/* (2) */
 	Edge* split_edge = new_edge(tree); /* the breakpoint sits between the target_edge and the split_edge */
@@ -574,7 +577,7 @@ Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_
 	}
 
 	/* (5) */
-	Node* son = new_node(node_name, tree, 1); /* a leaf */
+	Node* son = new_node(node_name, tree, 1, getsets); /* a leaf */
 
 	/* (6) */
 	Edge* outer_edge = new_edge(tree);
@@ -1068,7 +1071,7 @@ void reorient_edges_recur(Node *n, Node *prev, Edge *e){
 }
 
 
-void unrooted_to_rooted(Tree* t) {
+void unrooted_to_rooted(Tree* t, bool getsets) {
 	/* this function takes an unrooted tree and simply roots it on node0:
 	   at the end of the process, t->node0 has exactly two neighbours */
 	/* it assumes there is enough space in the tree's node pointer and edge pointer arrays. */
@@ -1080,7 +1083,7 @@ void unrooted_to_rooted(Tree* t) {
 	Node* son0 = old_root->neigh[0];
 	Edge* br0 = old_root->br[0];
 	/* we create a new root node whose left son will be what was in dir0 from the old root, and right son will be the old root. */
-	Node* new_root = new_node("root", t, 2); /* will have only two neighbours */
+	Node* new_root = new_node("root", t, 2, getsets); /* will have only two neighbours */
 	t->node0 = new_root;
 	
 
@@ -1201,7 +1204,9 @@ Edge* connect_to_father(Node* son, Node* father, Tree* current_tree) {
 
 // Parses a Newick String.
 // Copied for a large part from https://github.com/evolbioinfo/gotree/blob/master/io/newick/newick_parser.go
-Tree* parse_nh_string(char* in_str) {
+// If getsets is true, then allocate bookkeeping for transfer sets on the tree
+// (for the balanced case).
+Tree* parse_nh_string(char* in_str, bool getsets) {
 	Tree *t = (Tree *) malloc(sizeof(Tree));
 	int i; /* loop counter */
 	int in_length = strlen(in_str);
@@ -1247,7 +1252,7 @@ Tree* parse_nh_string(char* in_str) {
 
 	// Now we can parse iteratively the tree
 	level = 0;
-	last_tok = parse_iter(t, in_str, &i, in_length, &level);
+	last_tok = parse_iter(t, in_str, &i, in_length, &level, getsets);
 	//printf("Root ??? %d\n",t->node0);
 	if(level != 0) {
 		fprintf(stderr,"Newick Error : Mismatched parenthesis after parsing.\n"); return NULL;
@@ -1262,7 +1267,7 @@ Tree* parse_nh_string(char* in_str) {
 	return t;
 }
 
-Node* newNode(Tree *t){
+Node* newNode(Tree *t, bool getsets){
 	Node* node = (Node*) malloc(sizeof(Node));
 	node->id = t->nb_nodes;
 	node->name = NULL;
@@ -1284,8 +1289,10 @@ Node* newNode(Tree *t){
 	node->mheight = MAX_MHEIGHT;
 
 	#ifdef ASSUME_BALANCED
-	node->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
-	node->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	if(getsets) {
+		nn->include = allocateNA(INCLUDE_EXCLUDE_SIZE);
+		nn->exclude = allocateNA(INCLUDE_EXCLUDE_SIZE);
+	}
 	#else
 	node->include = NULL;
 	node->exclude = NULL;
@@ -1313,7 +1320,8 @@ bool isNewickChar(char ch){
 }
 
 // Copied for a large part from https://github.com/evolbioinfo/gotree/blob/master/io/newick/newick_parser.go
-char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level){
+char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level,
+								bool getsets){
 	NodeStack *ns = new_nodestack();
 	NodeStackElt *elt = NULL;
 	Node *new_node = NULL;
@@ -1333,7 +1341,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 					fprintf(stderr,"NULL node at depth > 0");
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
-				node = newNode(t);
+				node = newNode(t, getsets);
 				nodestack_push(ns, node, NULL);
 				t->node0 = node; // The Root
 			}
@@ -1342,7 +1350,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 					fprintf(stderr,"An open parenthesis at level 0 of recursion... Forgot a ';' at the end of previous tree?\n");
   					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
-				new_node = newNode(t);
+				new_node = newNode(t, getsets);
 				edge = connect_to_father(new_node, node, t);
 				node = new_node;
 				nodestack_push(ns, node, edge);
@@ -1485,7 +1493,7 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 					fprintf(stderr,"Cannot create a new tip with no parent");
 					Generic_Exit(__FILE__,__LINE__,__FUNCTION__,EXIT_FAILURE);
 				}
-				new_node = newNode(t);
+				new_node = newNode(t, getsets);
 				new_node->name = name;
 				addTip(t,strdup(name));
 				edge = connect_to_father(new_node, node, t);
@@ -1499,9 +1507,9 @@ char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level)
 }
 
 Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
-                        bool skip_hashtables) {
+                        bool skip_hashtables, bool getsets) {
 	/* trick: iff taxname_lookup_table is NULL, we set it according to the tree read, otherwise we use it as the reference taxname lookup table */
- 	Tree* mytree = parse_nh_string(big_string);
+ 	Tree* mytree = parse_nh_string(big_string, getsets);
 	mytree->leaves = allocateNA(mytree->nb_taxa);
 		
 	if(mytree == NULL) { 	fprintf(stderr,"Not a syntactically correct NH tree.\n"); return NULL; }

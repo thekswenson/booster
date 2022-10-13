@@ -47,10 +47,14 @@ u', as long as u is the "heavy" child of u'. This is repeated, starting at
 each leaf.
 
 At the end, transfer_index[i] will have the transfer index for edge i.
+
+If getsets is true, then compute the transfer sets for each edge of ref_tree,
+not just the index (i.e. the size of the sets).
 */
 void compute_transfer_indices_fast_BALANCED(Tree *ref_tree, const int n,
                                             const int m, Tree *alt_tree,
-                                            int *transfer_indices);
+                                            int *transfer_indices,
+                                            bool getsets);
 
 
 /* Compute the edge Transfer Index from the child node transfer index.

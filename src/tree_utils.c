@@ -31,7 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
    - Uses the taxname_lookup_id
    Advice: do a srand(time(NULL)) before calling this function a large number of times
 */
-Tree* gen_random_tree(Tree *tree){
+Tree* gen_random_tree(Tree *tree, bool getset){
   int* indices = (int*) calloc(tree->nb_taxa, sizeof(int)); /* the array that we are going to shuffle around to get random order in the taxa names */
   int taxon;
   for(taxon = 0; taxon < tree->nb_taxa; taxon++) indices[taxon] = taxon; /* initialization */
@@ -49,11 +49,11 @@ Tree* gen_random_tree(Tree *tree){
   my_tree = new_tree(tree->taxa_names[indices[nb_inserted_taxa++]]);
 	
   /* graft the second taxon */
-  graft_new_node_on_branch(NULL, my_tree, 0.5, 1.0, tree->taxa_names[indices[nb_inserted_taxa++]]);
+  graft_new_node_on_branch(NULL, my_tree, 0.5, 1.0, tree->taxa_names[indices[nb_inserted_taxa++]], getset);
   while(nb_inserted_taxa < tree->nb_taxa) {
     /* select a branch at random */
     edge_ind = rand_to(my_tree->nb_edges); /* outputs something between 0 and (nb_edges-1) exclusive */
-    graft_new_node_on_branch(my_tree->a_edges[edge_ind], my_tree, 0.5, 1.0, tree->taxa_names[indices[nb_inserted_taxa++]]);
+    graft_new_node_on_branch(my_tree->a_edges[edge_ind], my_tree, 0.5, 1.0, tree->taxa_names[indices[nb_inserted_taxa++]], getset);
   } /* end looping on the taxa, tree is full */
 
   /* here we need to re-root the tree on a trifurcated node, not on a leaf, before we write it in NH format */
@@ -83,7 +83,7 @@ Tree* gen_random_tree(Tree *tree){
 }
 
 
-Tree * gen_rand_tree(int nbr_taxa, char **taxa_names){
+Tree * gen_rand_tree(int nbr_taxa, char **taxa_names, bool getset){
   int taxon;
   Tree *my_tree;
   int* indices = (int*) calloc(nbr_taxa, sizeof(int)); /* the array that we are going to shuffle around to get random order in the taxa names */
@@ -109,12 +109,12 @@ Tree * gen_rand_tree(int nbr_taxa, char **taxa_names){
   my_tree = new_tree(taxa_names[indices[nb_inserted_taxa++]]);
   
   /* graft the second taxon */
-  graft_new_node_on_branch(NULL, my_tree, 0.5, 1.0, taxa_names[indices[nb_inserted_taxa++]]);
+  graft_new_node_on_branch(NULL, my_tree, 0.5, 1.0, taxa_names[indices[nb_inserted_taxa++]], getset);
   
   while(nb_inserted_taxa < nbr_taxa) {
     /* select a branch at random */
     edge_ind = rand_to(my_tree->nb_edges); /* outputs something between 0 and (nb_edges) exclusive */
-    graft_new_node_on_branch(my_tree->a_edges[edge_ind], my_tree, 0.5, 1.0, taxa_names[indices[nb_inserted_taxa++]]);
+    graft_new_node_on_branch(my_tree->a_edges[edge_ind], my_tree, 0.5, 1.0, taxa_names[indices[nb_inserted_taxa++]], getset);
   } /* end looping on the taxa, tree is full */
   
   /* here we need to re-root the tree on a trifurcated node, not on a leaf, before we write it in NH format */

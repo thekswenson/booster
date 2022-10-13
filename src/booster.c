@@ -302,9 +302,9 @@ int main (int argc, char* argv[]) {
   #endif
 
   char** taxname_lookup_table = NULL;
-  ref_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables); /* sets taxname_lookup_table en passant */
-  if(out_raw_tree !=NULL){
-    ref_raw_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables); /* sets taxname_lookup_table en passant */
+  ref_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables, false); /* sets taxname_lookup_table en passant */
+  if(out_raw_tree != NULL){
+    ref_raw_tree  = complete_parse_nh(big_string, &taxname_lookup_table, skip_hashtables, false); /* sets taxname_lookup_table en passant */
   }
 
   /***********************************************************************/
@@ -387,7 +387,7 @@ void fbp(Tree *ref_tree, char **alt_tree_strings,char** taxname_lookup_table, in
 #pragma omp parallel for private( j, alt_tree, support) shared(nb_found, hm, ref_tree, alt_tree_strings, taxname_lookup_table, quiet, num_trees) schedule(dynamic)
   for(i_tree=0; i_tree< num_trees; i_tree++){
     if(!quiet) fprintf(stderr,"New bootstrap tree : %d\n",i_tree);
-    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, false);
+    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, false, false);
     
     if (alt_tree == NULL) {
       fprintf(stderr,"Not a correct NH tree (%d). Skipping.\n%s\n",i_tree,alt_tree_strings[i_tree]);
@@ -478,7 +478,11 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
   #endif
   for(i_tree=0; i_tree< num_trees; i_tree++){
     if(!quiet) fprintf(stderr,"New bootstrap tree : %d\n",i_tree);
-    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, skip_hashtables);
+    #ifdef ASSUME_BALANCED
+    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, skip_hashtables, get_sets);
+    #else
+    alt_tree = complete_parse_nh(alt_tree_strings[i_tree], &taxname_lookup_table, skip_hashtables, false);
+    #endif
     
     if (alt_tree == NULL) {
       fprintf(stderr,"Not a correct NH tree (%d). Skipping.\n%s\n",i_tree,alt_tree_strings[i_tree]);
@@ -498,7 +502,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
     
       #ifdef ASSUME_BALANCED
       compute_transfer_indices_fast_BALANCED(ref_tree_copy, n, m, alt_tree,
-                                             trans_ind_tmp[i_tree]);
+                                             trans_ind_tmp[i_tree], get_sets);
       #else
       compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
                                     trans_ind_tmp[i_tree], get_sets);
@@ -522,7 +526,7 @@ void tbe(bool rapid, Tree *ref_tree, Tree *ref_raw_tree,
 
     #ifdef ASSUME_BALANCED
     compute_transfer_indices_fast_BALANCED(ref_tree_copy, n, m, alt_tree,
-                                           trans_ind_fast[i_tree]);
+                                           trans_ind_fast[i_tree], get_sets);
     #else
     compute_transfer_indices_fast(ref_tree_copy, n, m, alt_tree,
                                   trans_ind_fast[i_tree], get_sets);

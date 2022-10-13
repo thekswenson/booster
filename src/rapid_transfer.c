@@ -85,10 +85,14 @@ u', as long as u is the "heavy" child of u'. This is repeated, starting at
 each leaf.
 
 At the end, transfer_index[i] will have the transfer index for edge i.
+
+If getsets is true, then compute the transfer sets for each edge of ref_tree,
+not just the index (i.e. the size of the sets).
 */
 void compute_transfer_indices_fast_BALANCED(Tree *ref_tree, const int n,
                                             const int m, Tree *alt_tree,
-                                            int *transfer_indices)
+                                            int *transfer_indices,
+                                            bool getsets)
 {
   set_leaf_bijection(ref_tree, alt_tree);  //Map leaves between the two trees
 
@@ -112,9 +116,9 @@ void compute_transfer_indices_fast_BALANCED(Tree *ref_tree, const int n,
             print_nodes_TIvars(alt_tree->a_nodes, alt_tree->nb_nodes));
 
     //print_tree_dot(alt_tree, "alt_tree_0.dot", false);
-    add_heavy_path(u, alt_tree, false, false); //Get TI on heavy path starting at u
+    add_heavy_path(u, alt_tree, false, getsets); //Get TI on heavy path starting at u
     //print_tree_dot(alt_tree, "alt_tree_1.dot", false);
-    reset_heavy_path(u, false, false);         //Reset TI associated variables
+    reset_heavy_path(u, false, getsets);         //Reset TI associated variables
     //print_tree_dot(alt_tree, "alt_tree_2.dot", false);
   }
 

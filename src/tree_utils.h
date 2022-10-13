@@ -31,7 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "sort.h"
 #include "stats.h"
 
-Tree* gen_random_tree(Tree *tree);
+Tree* gen_random_tree(Tree *tree, bool getset);
 /**
    This function precomputes the esperence of the expected number of parsimony steps
    implied by a bipartition under the hypothesis that the tree is random.

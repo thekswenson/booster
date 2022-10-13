@@ -91,8 +91,8 @@ typedef struct __Node {
                    // (Pv is the path from v to the root)
   int d_min;       // Minimum TI found in this subtree
   int d_max;       // Maximum TI found in this subtree (used for unrooted TI)
-  NodeArray* include; // Include these leaves in the transfer set for the subtree
-  NodeArray* exclude; // Exclude these leaves from the transfer set for this node
+  NodeArray* include; // Include these leaves in the transfer set for the subtree (used for balanced trees)
+  NodeArray* exclude; // Exclude these leaves from the transfer set for this node (used for balanced trees)
   bool exclude_this;  // Used for leaf nodes when calculating the transfer set
                       // (only used for the old SLOW version).
 
@@ -182,17 +182,17 @@ int index_toplevel_colon(char* in_str, int begin, int end);
 void parse_double(char* in_str, int begin, int end, double* location);
 
 /* creating a node, a branch, a tree: to create a tree from scratch, not from parsing */
-Node* newNode(Tree* t);
-Node* new_node(const char* name, Tree* t, int degree);
+Node* newNode(Tree* t, bool getsets);
+Node* new_node(const char* name, Tree* t, int degree, bool getsets);
 Edge* new_edge(Tree* t);
-Tree* new_tree(const char* name);
+Tree* new_tree(const char* name, bool getsets);
 void addTip(Tree *t, char* name);
 Edge* connect_to_father(Node* father, Node* son, Tree* current_tree);
-Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_left, double new_edge_length, char* node_name);
+Node* graft_new_node_on_branch(Edge* target_edge, Tree* tree, double ratio_from_left, double new_edge_length, char* node_name, bool getsets);
 
 void addTip(Tree *t, char* name);
 bool isNewickChar(char ch);
-char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level);
+char parse_iter(Tree* t, char* in_str, int* position, int in_length, int* level, bool getsets);
 
 
 /* Replicate only the parts of the given tree important to the computation of
@@ -257,7 +257,7 @@ void shuffle_taxa(Tree *tree);
 
 /* (re)rooting a tree */
 void reroot_acceptable(Tree* t);
-void unrooted_to_rooted(Tree* t);
+void unrooted_to_rooted(Tree* t, bool getsets);
 
 /* To be called after a reroot*/
 void reorient_edges(Tree *t);
@@ -271,11 +271,11 @@ int copy_nh_stream_into_str(FILE* nh_stream, char* big_string);
 void process_name_and_brlen(Node* son_node, Edge* edge, Tree* current_tree, char* in_str, int begin, int end);
 Node* create_son_and_connect_to_father(Node* current_node, Tree* current_tree, int direction, char* in_str, int begin, int end);
 void parse_substring_into_node(char* in_str, int begin, int end, Node* current_node, int has_father, Tree* current_tree);
-Tree* parse_nh_string(char* in_str);
+Tree* parse_nh_string(char* in_str, bool getsets);
 char parse_recur(Tree* t, char* in_str, int* position, int in_length, Node* node, Edge* edge, int* level);
 /* complete parse tree: parse NH string, update hashtables and subtype counts */
 Tree *complete_parse_nh(char* big_string, char*** taxname_lookup_table,
-                        bool skip_hashtables);
+                        bool skip_hashtables, bool getsets);
 
 
 /* taxname lookup table functions */
@@ -356,8 +356,10 @@ void update_all_i_c_post_order_boot_tree(Tree* ref_tree, Tree* boot_tree, short 
    (names will be numbered in this case)
 
    - The output tree has branch lengths attributed using a normal distribution  N(0.1,0.05), and any br len < 0 is set to 0
+
+   - if getsets is true, then innitialize extra bookkeeping for transfer sets
 */
-Tree * gen_rand_tree(int nbr_taxa, char **taxa_names);
+Tree * gen_rand_tree(int nbr_taxa, char **taxa_names, bool getsets);
 
 /* writing a tree */
 
